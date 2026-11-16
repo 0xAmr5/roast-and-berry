@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>لوحة إدارة الكافيه والكاشير | Roast & Berry POS</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23111827'/%3E%3Cpath d='M20 26h20v11a10 10 0 0 1-20 0V26z' fill='%23ffffff'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    :root {
+      --bg-app: #f6f7f9;
+      --sidebar-bg: #111827;
+      --sidebar-hover: #1f2937;
+      --surface: #ffffff;
+      --surface-soft: #f9fafb;
+      --text: #111827;
+      --muted: #6b7280;
+      --gold: #b45309;
+      --green: #059669;
+      --green-soft: #ecfdf5;
+      --red: #dc2626;
+      --red-soft: #fef2f2;
+      --border: #e5e7eb;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Cairo", sans-serif; background: var(--bg-app); color: var(--text); line-height: 1.55; }
+
+    .auth-screen { min-height: 100vh; background: #111827; display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .auth-card { background: #1f2937; border: 1px solid #374151; border-radius: 16px; padding: 36px 28px; width: 100%; max-width: 370px; text-align: center; color: #fff; }
+    .auth-card h2 { font-size: 1.25rem; margin: 12px 0 6px; font-weight: 800; }
+    .auth-card p { font-size: 0.84rem; color: #9ca3af; margin-bottom: 20px; }
+    .auth-card input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #4b5563; background: #111827; color: #fff; text-align: center; font-size: 1.35rem; letter-spacing: 8px; margin-bottom: 14px; outline: none; }
+
+    .pos-shell { display: grid; grid-template-columns: 245px 1fr; min-height: 100vh; }
+
+    .pos-sidebar {
+      background: var(--sidebar-bg);
+      color: #f9fafb;
+      padding: 20px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    .sb-brand { display: flex; align-items: center; gap: 10px; padding-bottom: 16px; border-bottom: 1px solid #1f2937; margin-bottom: 18px; }
+    .sb-logo { width: 40px; height: 40px; border-radius: 10px; background: var(--gold); display: grid; place-items: center; overflow: hidden; flex-shrink: 0; }
+    .sb-logo img { width: 100%; height: 100%; object-fit: cover; }
+    .sb-brand h1 { font-size: 1rem; font-weight: 800; }
+    .sb-brand span { font-size: 0.72rem; color: #9ca3af; }
+
+    .sb-nav { display: flex; flex-direction: column; gap: 4px; }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: none;
+      background: transparent;
+      color: #d1d5db;
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: start;
+    }
+    .nav-item .nav-left { display: flex; align-items: center; gap: 10px; }
+    .nav-item:hover { background: var(--sidebar-hover); color: #fff; }
+    .nav-item.active { background: #ffffff; color: #111827; }
+    .nav-pill { background: var(--red); color: #fff; font-size: 0.72rem; padding: 1px 7px; border-radius: 99px; font-weight: 800; }
+
+    .sb-footer { display: flex; flex-direction: column; gap: 6px; padding-top: 14px; border-top: 1px solid #1f2937; }
+    .sb-btn {
+      padding: 9px 12px;
+      border-radius: 10px;
+      border: 1px solid #374151;
+      background: #1f2937;
+      color: #f3f4f6;
+      text-decoration: none;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 0.82rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .sb-btn.danger { color: #fca5a5; border-color: #7f1d1d; }
+
+    .pos-main { padding: 22px 26px 60px; max-width: 1300px; width: 100%; margin: 0 auto; }
+
+    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .topbar h2 { font-size: 1.25rem; font-weight: 800; }
+    .topbar p { font-size: 0.82rem; color: var(--muted); }
+
+    .bento-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+    .stat-box {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .stat-ico { width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; }
+    .stat-ico.gold { background: #fef3c7; color: var(--gold); }
+    .stat-ico.green { background: var(--green-soft); color: var(--green); }
+    .stat-ico.red { background: var(--red-soft); color: var(--red); }
+    .stat-ico.dark { background: #f3f4f6; color: #374151; }
+    .stat-box small { display: block; font-size: 0.78rem; color: var(--muted); font-weight: 600; }
+    .stat-box strong { font-size: 1.25rem; font-weight: 800; }
+
+    .view-panel { display: none; }
+    .view-panel.active { display: block; }
+
+    .alerts-banner { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+    .alert-card { background: #fffbeb; border: 1px solid #f59e0b; border-radius: 10px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; font-weight: 700; color: #78350f; }
+
+    .tables-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+    .legend-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+    .legend-pill { background: var(--surface); border: 1px solid var(--border); padding: 5px 12px; border-radius: 8px; font-size: 0.82rem; font-weight: 700; }
+
+    .tables-deck { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+    .table-tile { background: var(--surface); border-radius: 12px; padding: 16px; border: 1px solid var(--border); border-top: 4px solid var(--green); }
+    .table-tile.busy { border-top-color: var(--red); background: #fffafa; }
+    .table-tile h3 { font-size: 1.02rem; font-weight: 800; margin-bottom: 6px; }
+    .status-pill { display: inline-block; padding: 2px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 800; margin-bottom: 6px; }
+    .table-tile.free .status-pill { background: var(--green-soft); color: var(--green); }
+    .table-tile.busy .status-pill { background: var(--red-soft); color: var(--red); }
+    .tile-meta { font-size: 0.78rem; color: var(--muted); margin-bottom: 12px; }
+    .tile-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .orders-deck { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+    .ticket-card { background: var(--surface); border-radius: 12px; padding: 16px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+    .ticket-head { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    .ticket-badge { background: #111827; color: #fff; padding: 3px 10px; border-radius: 6px; font-weight: 800; font-size: 0.84rem; }
+    .ticket-items { list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 0.88rem; }
+    .ticket-items small { display: block; color: var(--muted); font-size: 0.76rem; }
+    .ticket-total { border-top: 1px dashed var(--border); padding-top: 8px; display: flex; justify-content: space-between; font-weight: 800; font-size: 0.95rem; }
+
+    .surface-card { background: var(--surface); border-radius: 14px; padding: 22px; border: 1px solid var(--border); }
+    .sub-heading { font-size: 0.96rem; font-weight: 800; margin-bottom: 12px; }
+
+    .layout-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+    .layout-choice { background: var(--surface-soft); border: 1.5px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; cursor: pointer; }
+    .layout-choice.active { border-color: #111827; background: #f3f4f6; }
+    .layout-choice strong { display: block; margin-top: 4px; font-size: 0.9rem; }
+    .layout-choice span { font-size: 0.76rem; color: var(--muted); }
+
+    .color-dots { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+    .c-dot { width: 36px; height: 36px; border-radius: 8px; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.2); cursor: pointer; }
+    .c-dot.active { outline: 2px solid #111827; outline-offset: 2px; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field.span-2 { grid-column: 1 / -1; }
+    .field label { font-size: 0.82rem; font-weight: 700; color: var(--muted); }
+    .field input, .field select, .field textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-soft); font-family: inherit; font-size: 0.9rem; outline: none; }
+    .field input:focus, .field select:focus { border-color: #111827; background: #fff; }
+
+    .btn-gold { padding: 11px 18px; border-radius: 10px; border: none; background: #111827; color: #fff; font-family: inherit; font-weight: 800; font-size: 0.9rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn-gold:hover { background: #1f2937; }
+    .btn-gold.full { width: 100%; }
+
+    .btn-mini { padding: 5px 10px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); font-family: inherit; font-weight: 700; font-size: 0.76rem; cursor: pointer; }
+    .btn-mini.green { background: var(--green); color: #fff; border-color: var(--green); }
+    .btn-mini.gold { background: #111827; color: #fff; border-color: #111827; }
+    .btn-mini.red { color: var(--red); border-color: var(--red); }
+
+    .table-wrap { background: var(--surface); border-radius: 12px; border: 1px solid var(--border); overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: start; }
+    th, td { padding: 11px 14px; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+    th { background: var(--surface-soft); font-weight: 800; }
+    .thumb-img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; }
+
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 100; }
+    .modal-overlay.open { display: flex; }
+    .modal-panel { background: var(--surface); border-radius: 14px; width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto; padding: 20px; }
+
+    /* كروت اختيار الصنف السريع للكاشير */
+    .quick-pos-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 10px;
+      max-height: 360px;
+      overflow-y: auto;
+      padding: 2px;
+    }
+    .quick-pos-card {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface-soft);
+      cursor: pointer;
+      text-align: start;
+      font-family: inherit;
+      transition: 0.15s;
+    }
+    .quick-pos-card:hover {
+      border-color: #111827;
+      background: #ffffff;
+    }
+    .quick-pos-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+    }
+    .quick-pos-top img {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .quick-pos-top strong {
+      font-size: 0.84rem;
+      line-height: 1.3;
+      color: var(--text);
+    }
+    .quick-pos-price {
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: var(--green);
+      margin-top: auto;
+    }
+
+    .toast-bar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(80px); background: #111827; color: #fff; padding: 10px 20px; border-radius: 8px; font-weight: 700; font-size: 0.86rem; transition: 0.25s; z-index: 200; }
+    .toast-bar.show { transform: translateX(-50%) translateY(0); }
+
+    .print-only { display: none; }
+    @media print {
+      body * { visibility: hidden; }
+      #thermalPrintArea, #thermalPrintArea * { visibility: visible; }
+      #thermalPrintArea { display: block; position: fixed; left: 0; top: 0; width: 76mm; padding: 4mm; font-size: 12px; color: #000; }
+    }
+
+    @media (max-width: 920px) {
+      .pos-shell { grid-template-columns: 1fr; }
+      .pos-sidebar { position: static; height: auto; }
+      .sb-nav { flex-direction: row; overflow-x: auto; }
+      .bento-stats { grid-template-columns: repeat(2, 1fr); }
+      .layout-grid, .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div id="loginScreen" class="auth-screen">
+    <div class="auth-card">
+      <div class="sb-logo" style="margin:0 auto;width:56px;height:56px;">
+        <i data-lucide="coffee" style="width:28px;height:28px;color:#fff;"></i>
+      </div>
+      <h2>بوابة الكاشير والإدارة</h2>
+      <p>أدخل الرقم السري الخاص بالكافيه للمتابعة (الافتراضي: 1234)</p>
+      <input type="password" id="pinInput" placeholder="••••" maxlength="8" />
+      <button id="loginBtn" class="btn-gold full">تسجيل الدخول</button>
+    </div>
+  </div>
+
+  <div id="adminApp" class="pos-shell" style="display: none;">
+    <aside class="pos-sidebar">
+      <div>
+        <div class="sb-brand">
+          <div class="sb-logo" id="sidebarLogoWrap">
+            <i data-lucide="coffee" style="color:#fff;"></i>
+          </div>
+          <div>
+            <h1 id="adminCafeName">روست آند بيري</h1>
+            <span>نظام إدارة الصالة والكاشير</span>
+          </div>
+        </div>
+
+        <nav class="sb-nav">
+          <button class="nav-item active" data-view="viewOrders">
+            <span class="nav-left"><i data-lucide="bell"></i><span>الطلبات الواردة</span></span>
+            <span class="nav-pill" id="navOpenBadge">0</span>
+          </button>
+          <button class="nav-item" data-view="viewTables">
+            <span class="nav-left"><i data-lucide="layout-grid"></i><span>ترابيزات الصالة</span></span>
+          </button>
+          <button class="nav-item" data-view="viewItems">
+            <span class="nav-left"><i data-lucide="utensils"></i><span>إدارة المنيو</span></span>
+          </button>
+          <button class="nav-item" data-view="viewDesign">
+            <span class="nav-left"><i data-lucide="palette"></i><span>تصميم المنيو</span></span>
+          </button>
+          <button class="nav-item" data-view="viewSettings">
+            <span class="nav-left"><i data-lucide="settings"></i><span>إعدادات الكافيه</span></span>
+          </button>
+        </nav>
+      </div>
+
+      <div class="sb-footer">
+        <button id="testBellBtn" class="sb-btn"><i data-lucide="volume-2"></i><span>تجربة صوت الجرس</span></button>
+        <a href="index.html" target="_blank" class="sb-btn"><i data-lucide="external-link"></i><span>معاينة منيو العملاء</span></a>
+        <button id="logoutBtn" class="sb-btn danger"><i data-lucide="log-out"></i><span>تسجيل خروج</span></button>
+      </div>
+    </aside>
+
+    <main class="pos-main">
+      <div class="topbar">
+        <div>
+          <h2 id="viewHeading">الطلبات الواردة والحسابات المفتوحة</h2>
+          <p id="viewSubheading">متابعة حية لجميع الترابيزات والطلبات داخل الكافيه</p>
+        </div>
+      </div>
+
+      <section class="bento-stats">
+        <div class="stat-box">
+          <div class="stat-ico gold"><i data-lucide="receipt"></i></div>
+          <div><small>الطلبات المُحصّلة</small><strong id="kpiTotalOrders">0</strong></div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-ico green"><i data-lucide="banknote"></i></div>
+          <div><small>إجمالي المبيعات</small><strong id="kpiTotalSales">0 ج.م</strong></div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-ico dark"><i data-lucide="check-circle-2"></i></div>
+          <div><small>ترابيزات متاحة</small><strong id="kpiFreeTables">20 / 20</strong></div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-ico red"><i data-lucide="users"></i></div>
+          <div><small>ترابيزات مشغولة</small><strong id="kpiOccupiedTables">0</strong></div>
+        </div>
+      </section>
+
+      <div id="alertsStack" class="alerts-banner"></div>
+
+      <section id="viewOrders" class="view-panel active">
+        <div id="ordersContainer" class="orders-deck"></div>
+      </section>
+
+      <section id="viewTables" class="view-panel">
+        <div class="tables-toolbar">
+          <div class="legend-pills">
+            <span class="legend-pill" id="chipTotalTables">إجمالي الترابيزات: 20</span>
+            <span class="legend-pill" style="color:var(--green);" id="chipFreeTables">🟢 متاحة: 20</span>
+            <span class="legend-pill" style="color:var(--red);" id="chipOccupiedTables">🔴 مشغولة: 0</span>
+          </div>
+        </div>
+        <div id="tablesGrid" class="tables-deck"></div>
+      </section>
+
+      <section id="viewItems" class="view-panel">
+        <div class="tables-toolbar">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button id="exportFullMenuPdfBtn" class="btn-mini" style="padding:10px 16px;font-size:0.86rem;">📄 تحميل المنيو الكامل PDF للطباعة</button>
+            <button id="openNewItemBtn" class="btn-gold">+ إضافة صنف جديد</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>الصورة</th>
+                <th>اسم الصنف</th>
+                <th>القسم</th>
+                <th>السعر</th>
+                <th>الحالة</th>
+                <th>التحكم</th>
+              </tr>
+            </thead>
+            <tbody id="itemsTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="viewDesign" class="view-panel">
+        <div class="surface-card">
+          <h3 class="sub-heading">1. شكل عرض المنيو للعملاء</h3>
+          <div class="layout-grid" id="layoutChoices">
+            <div class="layout-choice active" data-layout="editorial">
+              <div>📱</div>
+              <strong>قائمة عصرية هادئة</strong>
+              <span>صورة جانبية منظمة</span>
+            </div>
+            <div class="layout-choice" data-layout="luxury">
+              <div>✨</div>
+              <strong>تصميم فاخر</strong>
+              <span>صور كبيرة وعرض مميز</span>
+            </div>
+            <div class="layout-choice" data-layout="compact">
+              <div>⚡</div>
+              <strong>قائمة سريعة</strong>
+              <span>عرض مكثف وسريع</span>
+            </div>
+          </div>
+
+          <h3 class="sub-heading">2. اللون الرئيسي لهوية الكافيه</h3>
+          <div class="color-dots" id="colorSwatches">
+            <button type="button" class="c-dot active" data-color="#2c221e" style="background:#2c221e;"></button>
+            <button type="button" class="c-dot" data-color="#b4692e" style="background:#b4692e;"></button>
+            <button type="button" class="c-dot" data-color="#1e4632" style="background:#1e4632;"></button>
+            <button type="button" class="c-dot" data-color="#1e3a8a" style="background:#1e3a8a;"></button>
+            <button type="button" class="c-dot" data-color="#7f1d1d" style="background:#7f1d1d;"></button>
+            <button type="button" class="c-dot" data-color="#4c1d95" style="background:#4c1d95;"></button>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label>المظهر الافتراضي</label>
+              <select id="designTheme">
+                <option value="light">☀️ نهاري دافئ</option>
+                <option value="dark">🌙 ليلي هادئ</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>استدارة حواف الكروت</label>
+              <select id="designRadius">
+                <option value="14px">متوسطة ناعمة (14px)</option>
+                <option value="22px">دائرية فاخرة (22px)</option>
+                <option value="6px">كلاسيكية (6px)</option>
+              </select>
+            </div>
+            <div class="field span-2">
+              <label>حجم الخطوط</label>
+              <select id="designFontScale">
+                <option value="1">متوسط قياسي</option>
+                <option value="1.08">كبير مريح للقراءة</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="button" id="saveDesignBtn" class="btn-gold full">تطبيق وحفظ التصميم فوراً 🎨</button>
+        </div>
+      </section>
+
+      <section id="viewSettings" class="view-panel">
+        <form id="settingsForm" class="surface-card">
+          <div class="grid-2">
+            <div class="field">
+              <label>حالة استقبال الطلبات</label>
+              <select id="setAccepting">
+                <option value="true">🟢 مفتوح ويستقبل طلبات</option>
+                <option value="false">🔴 مغلق مؤقتاً</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>إجمالي عدد الترابيزات في الصالة</label>
+              <input type="number" id="setTotalTables" min="1" max="100" value="20" />
+            </div>
+            <div class="field">
+              <label>ضريبة القيمة المضافة (14%)</label>
+              <select id="setTaxEnabled">
+                <option value="true">✔ مفعلة (14%)</option>
+                <option value="false">✖ غير مفعلة</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>وقت تجهيز الطلب (بالدقائق)</label>
+              <input type="number" id="setPrepMinutes" min="1" max="120" value="15" />
+            </div>
+            <div class="field">
+              <label>اسم الكافيه</label>
+              <input type="text" id="setNameAr" required />
+            </div>
+            <div class="field">
+              <label>رقم الهاتف / الخط الساخن</label>
+              <input type="text" id="setHotline" value="01009694831" />
+            </div>
+            <div class="field">
+              <label>اسم شبكة Wi-Fi</label>
+              <input type="text" id="setWifiName" value="RoastBerry_5G" />
+            </div>
+            <div class="field">
+              <label>كلمة مرور Wi-Fi</label>
+              <input type="text" id="setWifiPass" value="RB@2026#Cafe" />
+            </div>
+            <div class="field">
+              <label>الرقم السري للداش بورد (PIN)</label>
+              <input type="text" id="setAdminPin" value="1234" />
+            </div>
+            <div class="field">
+              <label>لوجو الكافيه (اختياري)</label>
+              <input type="file" id="setLogoFile" accept="image/*" />
+            </div>
+            <div class="field span-2">
+              <label>وصف مختصر</label>
+              <input type="text" id="setTaglineAr" />
+            </div>
+            <div class="field span-2">
+              <label>العنوان بالتفصيل</label>
+              <input type="text" id="setAddressAr" />
+            </div>
+          </div>
+
+          <button type="submit" class="btn-gold full">حفظ الإعدادات ✔</button>
+          <button type="button" id="seedDefaultsBtn" class="btn-mini" style="margin-top:12px;width:100%;padding:10px;">
+            تحديث / استعادة قائمة المنيو الافتراضية (36 صنف)
+          </button>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <!-- مودال إضافة/تعديل صنف في المنيو -->
+  <div id="itemModal" class="modal-overlay">
+    <div class="modal-panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h3 id="itemModalHeading">إضافة صنف جديد</h3>
+        <button type="button" id="closeItemModalBtn" class="btn-mini">×</button>
+      </div>
+      <form id="itemForm">
+        <input type="hidden" id="editItemId" />
+        <div class="grid-2">
+          <div class="field"><label>اسم الصنف (عربي) *</label><input type="text" id="fNameAr" required /></div>
+          <div class="field"><label>اسم الصنف (إنجليزي) *</label><input type="text" id="fNameEn" required /></div>
+          <div class="field"><label>القسم *</label><select id="fCategory" required></select></div>
+          <div class="field"><label>السعر (ج.م) *</label><input type="number" id="fPrice" required min="1" /></div>
+          <div class="field span-2">
+            <label>رابط الصورة أو اختر صورة من جهازك</label>
+            <input type="url" id="fImage" placeholder="https://..." required />
+            <input type="file" id="fImageFile" accept="image/*" style="margin-top:6px;" />
+          </div>
+          <div class="field span-2"><label>الوصف (عربي)</label><input type="text" id="fDescAr" /></div>
+          <div class="field span-2"><label>الوصف (إنجليزي)</label><input type="text" id="fDescEn" /></div>
+        </div>
+        <button type="submit" class="btn-gold full">حفظ الصنف</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- مودال إضافة صنف سريع للترابيزة (POS Quick Picker) -->
+  <div id="quickAddPosModal" class="modal-overlay">
+    <div class="modal-panel" style="max-width: 600px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:10px;">
+        <div>
+          <h3 id="quickAddModalTitle" style="font-size:1.05rem;font-weight:800;">إضافة صنف للترابيزة</h3>
+          <span style="font-size:0.78rem;color:var(--muted);">اضغط على الصنف لإضافته مباشرة إلى الحساب</span>
+        </div>
+        <button type="button" id="closeQuickAddPosBtn" class="btn-mini" style="font-size:1.1rem;padding:4px 10px;">×</button>
+      </div>
+
+      <div class="field" style="margin-bottom:14px;">
+        <input type="text" id="quickPosSearchInput" placeholder="🔍 ابحث باسم المشروب أو الصنف..." />
+      </div>
+
+      <div id="quickPosItemsGrid" class="quick-pos-grid"></div>
+    </div>
+  </div>
+
+  <div id="toastBar" class="toast-bar"></div>
+  <div id="thermalPrintArea" class="print-only"></div>
+  <script type="module" src="js/admin.js"></script>
+</body>
+</html>
