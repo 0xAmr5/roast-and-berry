@@ -24,18 +24,30 @@ let design = {
   layout: "editorial",
   primaryColor: "#2c221e",
   theme: "light",
+  bgColor: "#faf8f5",
+  cardBg: "#ffffff",
+  fontFamily: "Cairo",
+  fontScale: "1",
+  titleSize: "1.08rem",
   radius: "14px",
-  fontScale: "1"
+  imgHeight: "170px",
+  mobileCols: "1",
+  showImages: true,
+  showDesc: true,
+  showBadges: true
 };
 let lastAlertStamp = Date.now();
 let targetPosTable = null;
+let selectedQrTables = new Set();
+let currentReportPeriod = "today";
+let filteredReportSales = [];
 
 function playBellSound() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const notes = [
-      { freq: 987.77, start: 0, duration: 0.45 },    // B5
-      { freq: 1318.51, start: 0.16, duration: 0.65 }  // E6
+      { freq: 987.77, start: 0, duration: 0.45 },
+      { freq: 1318.51, start: 0.16, duration: 0.65 }
     ];
 
     notes.forEach((n) => {
@@ -83,6 +95,11 @@ async function boot() {
       settings = { ...settings, ...snap.val() };
       populateSettingsForm();
       renderTablesDeck();
+      const qrCountEl = document.getElementById("qrCountInput");
+      if (qrCountEl && !qrCountEl.dataset.touched) {
+        qrCountEl.value = settings.totalTables || 20;
+      }
+      renderAdminQRs();
       updateKPIs();
     }
   });
@@ -135,8 +152,10 @@ function startAdminApp() {
   });
 
   onValue(ref(db, "completedSales"), (snap) => {
-    completedSales = snap.exists() ? Object.values(snap.val()) : [];
+    completedSales = snap.exists() ? Object.entries(snap.val()).map(([k, v]) => ({ saleKey: k, ...v })) : [];
+    completedSales.sort((a, b) => (b.closedTimestamp || 0) - (a.closedTimestamp || 0));
     updateKPIs();
+    renderReports();
   });
 
   onValue(ref(db, "design"), (snap) => {
@@ -146,6 +165,8 @@ function startAdminApp() {
     }
   });
 
+  initQrSelection();
+  renderAdminQRs();
   if (window.lucide) lucide.createIcons();
 }
 
@@ -153,7 +174,9 @@ const viewHeadings = {
   viewOrders: ["الطلبات الواردة والحسابات المفتوحة", "متابعة حية لجميع الترابيزات والطلبات داخل الكافيه"],
   viewTables: ["ترابيزات الصالة", "مراقبة حالة كل ترابيزة وإضافة أصناف أو تحصيل الحساب"],
   viewItems: ["إدارة المنيو والأصناف", "إضافة أصناف جديدة أو تعديل الأسعار وتوفر الأصناف"],
-  viewDesign: ["تصميم المنيو", "تخصيص ألوان وشكل عرض المنيو للعملاء"],
+  viewReports: ["الجرد والحسابات والتقارير", "سجل المبيعات اليومي والأسبوعي والشهري وتصدير Excel و PDF"],
+  viewQr: ["أكواد QR الترابيزات", "توليد وطباعة كروت QR ديناميكية للترابيزات المحددة"],
+  viewDesign: ["تصميم المنيو المتقدم", "تخصيص الألوان والخطوط والأحجام وشكل عرض المنيو للعملاء"],
   viewSettings: ["إعدادات الكافيه", "بيانات الكافيه، الضريبة، Wi-Fi وعدد الترابيزات"]
 };
 
@@ -168,6 +191,8 @@ document.querySelectorAll(".nav-item").forEach((btn) => {
       document.getElementById("viewHeading").textContent = viewHeadings[target][0];
       document.getElementById("viewSubheading").textContent = viewHeadings[target][1];
     }
+    if (target === "viewQr") renderAdminQRs();
+    if (target === "viewReports") renderReports();
   });
 });
 
@@ -384,11 +409,17 @@ window.settleTableTab = async (tableNum) => {
   if (!tab) return;
   if (!confirm(`تأكيد تحصيل مبلغ ${tab.total} ج.م وإخلاء ترابيزة ${tableNum}؟`)) return;
 
+  const now = new Date();
   const saleId = `sale_${Date.now()}`;
+  const dateISO = now.toISOString().split("T")[0];
+
   await set(ref(db, `completedSales/${saleId}`), {
     ...tab,
+    saleId,
     status: "closed",
-    closedAt: new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })
+    dateISO,
+    closedTimestamp: now.getTime(),
+    closedAt: now.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })
   });
   await remove(ref(db, `activeTabs/table_${tableNum}`));
   showToast(`تم تحصيل الحساب وإخلاء ترابيزة ${tableNum}`);
@@ -538,6 +569,319 @@ document.getElementById("exportFullMenuPdfBtn").addEventListener("click", () => 
   html2pdf().from(wrapper).save(`${settings.nameAr}-Menu.pdf`);
 });
 
+/* ==================== INVENTORY & ACCOUNTING REPORTS ==================== */
+function renderReports() {
+  const tbody = document.getElementById("reportsTableBody");
+  if (!tbody) return;
+
+  const now = new Date();
+  const todayStr = now.toISOString().split("T")[0];
+  const weekAgoMs = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+  const currentMonthPrefix = todayStr.slice(0, 7);
+
+  const fromInput = document.getElementById("repFromDate")?.value;
+  const toInput = document.getElementById("repToDate")?.value;
+
+  filteredReportSales = completedSales.filter((sale) => {
+    const saleDate = sale.dateISO || (sale.closedTimestamp ? new Date(sale.closedTimestamp).toISOString().split("T")[0] : todayStr);
+    const saleMs = sale.closedTimestamp || now.getTime();
+
+    if (currentReportPeriod === "today") return saleDate === todayStr;
+    if (currentReportPeriod === "week") return saleMs >= weekAgoMs;
+    if (currentReportPeriod === "month") return saleDate.startsWith(currentMonthPrefix);
+    if (currentReportPeriod === "custom") {
+      if (fromInput && saleDate < fromInput) return false;
+      if (toInput && saleDate > toInput) return false;
+      return true;
+    }
+    return true;
+  });
+
+  const count = filteredReportSales.length;
+  const subTotal = filteredReportSales.reduce((s, o) => s + (Number(o.subtotal) || 0), 0);
+  const taxTotal = filteredReportSales.reduce((s, o) => s + (Number(o.tax) || 0), 0);
+  const grandTotal = filteredReportSales.reduce((s, o) => s + (Number(o.total) || 0), 0);
+
+  document.getElementById("repOrdersCount").textContent = count;
+  document.getElementById("repSubTotal").textContent = `${subTotal} ج.م`;
+  document.getElementById("repTaxTotal").textContent = `${taxTotal} ج.م`;
+  document.getElementById("repGrandTotal").textContent = `${grandTotal} ج.م`;
+
+  document.getElementById("repFooterCount").textContent = `${count} فاتورة`;
+  document.getElementById("repFooterSub").textContent = `${subTotal} ج.م`;
+  document.getElementById("repFooterTax").textContent = `${taxTotal} ج.م`;
+  document.getElementById("repFooterGrand").textContent = `${grandTotal} ج.م`;
+
+  if (document.getElementById("reportPrintDateStamp")) {
+    document.getElementById("reportPrintDateStamp").textContent = `${settings.nameAr} — تاريخ التقرير: ${todayStr}`;
+  }
+
+  if (count > 0) {
+    const firstOrder = filteredReportSales[filteredReportSales.length - 1];
+    const lastOrder = filteredReportSales[0];
+    document.getElementById("repShiftTimeRange").textContent = `أول أوردر: ${firstOrder.openedAt || firstOrder.closedAt || "--"} | آخر أوردر: ${lastOrder.closedAt || "--"}`;
+  } else {
+    document.getElementById("repShiftTimeRange").textContent = "أول أوردر: -- | آخر أوردر: --";
+  }
+
+  if (!count) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px;">لا توجد فواتير محصلة في هذه الفترة</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filteredReportSales
+    .map((s, idx) => {
+      const itemsText = (s.items || []).map((i) => `${i.qty}× ${i.nameAr}`).join(" ، ");
+      const dStr = s.dateISO || todayStr;
+      return `
+        <tr>
+          <td><strong>#${count - idx}</strong></td>
+          <td><span class="ticket-badge" style="font-size:0.75rem;">ترابيزة ${s.tableNumber}</span></td>
+          <td>${dStr}</td>
+          <td>${s.openedAt || "--"} ➔ ${s.closedAt || "--"}</td>
+          <td style="max-width:240px;white-space:normal;">${itemsText}</td>
+          <td>${s.subtotal || 0} ج.م</td>
+          <td>${s.tax || 0} ج.م</td>
+          <td><strong style="color:var(--green);">${s.total || 0} ج.م</strong></td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+document.querySelectorAll("[data-period]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("[data-period]").forEach((b) => b.classList.remove("active-filter"));
+    btn.classList.add("active-filter");
+    currentReportPeriod = btn.dataset.period;
+    renderReports();
+  });
+});
+
+document.getElementById("applyCustomDateBtn")?.addEventListener("click", () => {
+  document.querySelectorAll("[data-period]").forEach((b) => b.classList.remove("active-filter"));
+  currentReportPeriod = "custom";
+  renderReports();
+});
+
+document.getElementById("exportExcelBtn")?.addEventListener("click", () => {
+  if (!filteredReportSales.length) return showToast("لا توجد بيانات للتصدير في هذه الفترة");
+  if (typeof XLSX === "undefined") return showToast("مكتبة Excel قيد التحميل، حاول مرة أخرى");
+
+  const rows = filteredReportSales.map((s, idx) => ({
+    "رقم الفاتورة": filteredReportSales.length - idx,
+    "رقم الترابيزة": s.tableNumber,
+    "التاريخ": s.dateISO || new Date().toISOString().split("T")[0],
+    "وقت الفتح": s.openedAt || "",
+    "وقت التحصيل": s.closedAt || "",
+    "الأصناف": (s.items || []).map((i) => `${i.qty}x ${i.nameAr}`).join(" | "),
+    "الصافي (ج.م)": Number(s.subtotal) || 0,
+    "الضريبة (ج.م)": Number(s.tax) || 0,
+    "الإجمالي (ج.م)": Number(s.total) || 0
+  }));
+
+  const totalSum = filteredReportSales.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+  rows.push({
+    "رقم الفاتورة": "الإجمالي الكلي",
+    "رقم الترابيزة": "",
+    "التاريخ": "",
+    "وقت الفتح": "",
+    "وقت التحصيل": "",
+    "الأصناف": `عدد الفواتير: ${filteredReportSales.length}`,
+    "الصافي (ج.م)": filteredReportSales.reduce((sum, o) => sum + (Number(o.subtotal) || 0), 0),
+    "الضريبة (ج.م)": filteredReportSales.reduce((sum, o) => sum + (Number(o.tax) || 0), 0),
+    "الإجمالي (ج.م)": totalSum
+  });
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "تقرير المبيعات");
+  XLSX.writeFile(wb, `RoastBerry-Sales-${currentReportPeriod}-${new Date().toISOString().split("T")[0]}.xlsx`);
+  showToast("تم تحميل شيت Excel بنجاح 📊");
+});
+
+document.getElementById("exportReportPdfBtn")?.addEventListener("click", () => {
+  if (!filteredReportSales.length) return showToast("لا توجد بيانات للتصدير في هذه الفترة");
+  const area = document.getElementById("reportPrintableArea");
+  html2pdf()
+    .set({
+      margin: 8,
+      filename: `RoastBerry-Report-${new Date().toISOString().split("T")[0]}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2, backgroundColor: "#ffffff" },
+      jsPDF: { unit: "mm", format: "a4", orientation: "landscape" }
+    })
+    .from(area)
+    .save();
+});
+
+/* ==================== DYNAMIC QR GENERATOR WITH SELECTIVE PRINT ==================== */
+function initQrSelection() {
+  const count = Number(document.getElementById("qrCountInput")?.value) || Number(settings.totalTables) || 20;
+  selectedQrTables.clear();
+  for (let i = 1; i <= count; i++) selectedQrTables.add(i);
+}
+
+function updateQrSelectionUI() {
+  const counterEl = document.getElementById("qrSelectedCounter");
+  if (counterEl) {
+    const sorted = Array.from(selectedQrTables).sort((a, b) => a - b);
+    counterEl.textContent = sorted.length
+      ? `الترابيزات المحددة للطباعة (${sorted.length}): ${sorted.join(" ، ")}`
+      : "لم يتم تحديد أي ترابيزة للطباعة";
+  }
+
+  document.querySelectorAll(".qr-select-card").forEach((card) => {
+    const num = Number(card.dataset.table);
+    const isSel = selectedQrTables.has(num);
+    card.classList.toggle("selected", isSel);
+    const cb = card.querySelector("input[type='checkbox']");
+    if (cb) cb.checked = isSel;
+  });
+}
+
+function renderAdminQRs() {
+  const grid = document.getElementById("adminQrGrid");
+  const baseInput = document.getElementById("qrBaseUrlInput");
+  const countInput = document.getElementById("qrCountInput");
+  if (!grid || !baseInput || typeof QRCode === "undefined") return;
+
+  const cleanBase = baseInput.value.trim().replace(/\/+$/, "") || window.location.origin;
+  const totalTables = Math.min(100, Math.max(1, Number(countInput?.value) || Number(settings.totalTables) || 20));
+  if (selectedQrTables.size === 0) {
+    for (let i = 1; i <= totalTables; i++) selectedQrTables.add(i);
+  }
+
+  grid.innerHTML = "";
+
+  for (let i = 1; i <= totalTables; i++) {
+    const tableUrl = `${cleanBase}/?table=${i}`;
+    const card = document.createElement("div");
+    card.className = `qr-select-card ${selectedQrTables.has(i) ? "selected" : ""}`;
+    card.dataset.table = String(i);
+    card.innerHTML = `
+      <label class="qr-check-label">
+        <input type="checkbox" ${selectedQrTables.has(i) ? "checked" : ""} onchange="window.toggleQrTable(${i}, this.checked)" />
+        <span>تحديد</span>
+      </label>
+      <strong style="font-size:0.9rem;color:var(--primary);margin-top:18px;">${settings.nameAr || "روست آند بيري كافيه"}</strong>
+      <div id="qrCanvas_${i}" style="padding:8px;background:#fff;border:1px solid var(--border);border-radius:10px;"></div>
+      <span class="ticket-badge">ترابيزة ${i}</span>
+      <small style="font-size:0.66rem;color:var(--muted);direction:ltr;word-break:break-all;">${tableUrl}</small>
+    `;
+    grid.appendChild(card);
+
+    new QRCode(document.getElementById(`qrCanvas_${i}`), {
+      text: tableUrl,
+      width: 130,
+      height: 130,
+      colorDark: "#111827",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.H
+    });
+  }
+  updateQrSelectionUI();
+}
+
+window.toggleQrTable = (num, checked) => {
+  if (checked) selectedQrTables.add(num);
+  else selectedQrTables.delete(num);
+  updateQrSelectionUI();
+};
+
+document.getElementById("qrCountInput")?.addEventListener("input", (e) => {
+  e.target.dataset.touched = "1";
+  initQrSelection();
+  renderAdminQRs();
+});
+
+document.getElementById("refreshQrBtn")?.addEventListener("click", renderAdminQRs);
+
+document.getElementById("selectAllQrBtn")?.addEventListener("click", () => {
+  initQrSelection();
+  updateQrSelectionUI();
+});
+
+document.getElementById("clearQrSelectBtn")?.addEventListener("click", () => {
+  selectedQrTables.clear();
+  updateQrSelectionUI();
+});
+
+document.getElementById("applySpecificQrBtn")?.addEventListener("click", () => {
+  const raw = document.getElementById("qrSpecificInput").value.trim();
+  if (!raw) return showToast("اكتب أرقام الترابيزات مثل: 5, 7, 9");
+
+  const maxTables = Number(document.getElementById("qrCountInput").value) || 20;
+  const parsed = new Set();
+
+  raw.split(/[,،\s]+/).forEach((part) => {
+    if (part.includes("-")) {
+      const [start, end] = part.split("-").map(Number);
+      if (start && end && end >= start) {
+        for (let n = start; n <= Math.min(end, maxTables); n++) parsed.add(n);
+      }
+    } else {
+      const num = Number(part);
+      if (num >= 1 && num <= maxTables) parsed.add(num);
+    }
+  });
+
+  if (!parsed.size) return showToast("أرقام الترابيزات غير صحيحة");
+  selectedQrTables = parsed;
+  updateQrSelectionUI();
+  showToast(`تم تحديد ${parsed.size} ترابيزة للطباعة`);
+});
+
+document.getElementById("printSelectedQrBtn")?.addEventListener("click", () => {
+  const tablesToPrint = Array.from(selectedQrTables).sort((a, b) => a - b);
+  if (!tablesToPrint.length) return showToast("حدد ترابيزة واحدة على الأقل للطباعة");
+
+  const cleanBase = document.getElementById("qrBaseUrlInput").value.trim().replace(/\/+$/, "");
+  const printWin = window.open("", "_blank");
+  if (!printWin) return showToast("يرجى السماح بالنوافذ المنبثقة للطباعة");
+
+  let cardsHtml = "";
+  tablesToPrint.forEach((i) => {
+    const qrImg = document.querySelector(`#qrCanvas_${i} img`)?.src || document.querySelector(`#qrCanvas_${i} canvas`)?.toDataURL() || "";
+    cardsHtml += `
+      <div class="qr-print-card">
+        <h4>${settings.nameAr || "روست آند بيري كافيه"}</h4>
+        <p>امسح الكود لفتح المنيو والطلب</p>
+        <img src="${qrImg}" />
+        <div class="badge">ترابيزة ${i}</div>
+        <small>${cleanBase}/?table=${i}</small>
+      </div>
+    `;
+  });
+
+  printWin.document.write(`
+    <!DOCTYPE html>
+    <html lang="ar" dir="rtl">
+    <head>
+      <meta charset="UTF-8" />
+      <title>طباعة QR الترابيزات المحددة</title>
+      <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700;800&display=swap" rel="stylesheet" />
+      <style>
+        body { font-family: 'Cairo', sans-serif; margin: 10mm; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8mm; }
+        .qr-print-card { border: 1.5px dashed #94a3b8; border-radius: 14px; padding: 12px; text-align: center; page-break-inside: avoid; }
+        .qr-print-card h4 { margin: 0 0 2px; font-size: 14px; }
+        .qr-print-card p { margin: 0 0 8px; font-size: 11px; color: #64748b; }
+        .qr-print-card img { width: 130px; height: 130px; display: block; margin: 0 auto 8px; }
+        .badge { display: inline-block; background: #111827; color: #fff; padding: 3px 16px; border-radius: 99px; font-size: 13px; font-weight: 800; }
+        small { display: block; margin-top: 5px; font-size: 9px; color: #64748b; direction: ltr; }
+      </style>
+    </head>
+    <body>
+      <div class="grid">${cardsHtml}</div>
+      <script>window.onload = () => { setTimeout(() => { window.print(); }, 400); };<\/script>
+    </body>
+    </html>
+  `);
+  printWin.document.close();
+});
+
+/* ==================== ADVANCED MENU DESIGN CUSTOMIZER ==================== */
 function syncDesignUI() {
   document.querySelectorAll(".layout-choice").forEach((el) => {
     el.classList.toggle("active", el.dataset.layout === design.layout);
@@ -545,9 +889,19 @@ function syncDesignUI() {
   document.querySelectorAll(".c-dot").forEach((el) => {
     el.classList.toggle("active", el.dataset.color === design.primaryColor);
   });
+  if (document.getElementById("designCustomColor")) document.getElementById("designCustomColor").value = design.primaryColor || "#2c221e";
+  if (document.getElementById("designBgColor")) document.getElementById("designBgColor").value = design.bgColor || "#faf8f5";
+  if (document.getElementById("designCardBg")) document.getElementById("designCardBg").value = design.cardBg || "#ffffff";
   document.getElementById("designTheme").value = design.theme || "light";
-  document.getElementById("designRadius").value = design.radius || "14px";
+  document.getElementById("designFontFamily").value = design.fontFamily || "Cairo";
   document.getElementById("designFontScale").value = design.fontScale || "1";
+  document.getElementById("designTitleSize").value = design.titleSize || "1.08rem";
+  document.getElementById("designRadius").value = design.radius || "14px";
+  if (document.getElementById("designImgHeight")) document.getElementById("designImgHeight").value = design.imgHeight || "170px";
+  document.getElementById("designMobileCols").value = design.mobileCols || "1";
+  document.getElementById("designShowImages").value = String(design.showImages !== false);
+  document.getElementById("designShowDesc").value = String(design.showDesc !== false);
+  if (document.getElementById("designShowBadges")) document.getElementById("designShowBadges").value = String(design.showBadges !== false);
 }
 
 document.querySelectorAll(".layout-choice").forEach((el) => {
@@ -564,14 +918,30 @@ document.querySelectorAll(".c-dot").forEach((el) => {
   });
 });
 
+document.getElementById("designCustomColor")?.addEventListener("input", (e) => {
+  design.primaryColor = e.target.value;
+  document.querySelectorAll(".c-dot").forEach((el) => el.classList.remove("active"));
+});
+
 document.getElementById("saveDesignBtn").addEventListener("click", async () => {
   design.theme = document.getElementById("designTheme").value;
-  design.radius = document.getElementById("designRadius").value;
+  design.bgColor = document.getElementById("designBgColor").value;
+  design.cardBg = document.getElementById("designCardBg").value;
+  design.fontFamily = document.getElementById("designFontFamily").value;
   design.fontScale = document.getElementById("designFontScale").value;
+  design.titleSize = document.getElementById("designTitleSize").value;
+  design.radius = document.getElementById("designRadius").value;
+  design.imgHeight = document.getElementById("designImgHeight").value;
+  design.mobileCols = document.getElementById("designMobileCols").value;
+  design.showImages = document.getElementById("designShowImages").value === "true";
+  design.showDesc = document.getElementById("designShowDesc").value === "true";
+  design.showBadges = document.getElementById("designShowBadges").value === "true";
+
   await set(ref(db, "design"), design);
   showToast("تم تطبيق وحفظ التصميم على منيو العملاء فوراً");
 });
 
+/* ==================== SETTINGS & FAVICON ==================== */
 function populateSettingsForm() {
   document.getElementById("adminCafeName").textContent = settings.nameAr || "روست آند بيري";
   document.getElementById("setAccepting").value = String(settings.acceptingOrders !== false);
@@ -588,6 +958,8 @@ function populateSettingsForm() {
 
   if (settings.logoUrl) {
     document.getElementById("sidebarLogoWrap").innerHTML = `<img src="${settings.logoUrl}" alt="Logo" />`;
+    const fav = document.getElementById("dynamicFavicon");
+    if (fav) fav.href = settings.logoUrl;
   }
 }
 
