@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>لوحة التحكم والكاشير | روست آند بيري</title>
+  <link id="dynamicFavicon" rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23a65e2e'/%3E%3Cpath d='M18 24h22v12a11 11 0 0 1-22 0V24zm22 3h4a5 5 0 0 1 0 10h-4v-3h4a2 2 0 0 0 0-4h-4v-3zM16 49h28v3H16v-3z' fill='%23ffffff'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    :root {
+      --bg: #f4f1ec;
+      --surface: #ffffff;
+      --surface-soft: #faf8f5;
+      --ink: #1e1916;
+      --muted: #6e665f;
+      --border: #e5ded5;
+      --gold: #a65e2e;
+      --green: #15803d;
+      --red: #b91c1c;
+      --blue: #1d4ed8;
+      --sidebar-bg: #1c1613;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Cairo", sans-serif; background: var(--bg); color: var(--ink); }
+
+    .admin-layout {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      background: var(--sidebar-bg);
+      color: #fff;
+      padding: 20px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .brand-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      margin-bottom: 8px;
+    }
+    .brand-logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: var(--gold);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .brand-logo img { width: 100%; height: 100%; object-fit: cover; }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      border-radius: 12px;
+      border: none;
+      background: transparent;
+      color: #d6cfc7;
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: right;
+      width: 100%;
+      transition: 0.15s;
+    }
+    .nav-item:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+    .nav-item.active { background: var(--gold); color: #fff; font-weight: 800; }
+
+    .nav-badge {
+      margin-inline-start: auto;
+      background: #ef4444;
+      color: #fff;
+      padding: 1px 8px;
+      border-radius: 99px;
+      font-size: 0.74rem;
+      font-weight: 900;
+    }
+
+    .main-area {
+      padding: 20px 24px;
+      max-width: 1400px;
+      width: 100%;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px 18px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    }
+    .kpi-card small { color: var(--muted); font-size: 0.78rem; font-weight: 700; display: block; }
+    .kpi-card strong { font-size: 1.45rem; font-weight: 900; color: var(--ink); }
+
+    .alerts-stack { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+    .alert-card {
+      background: #fef3c7;
+      border: 1.5px solid #f59e0b;
+      color: #92400e;
+      padding: 11px 16px;
+      border-radius: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      font-size: 0.88rem;
+      animation: pulseAlert 1.5s infinite;
+    }
+    @keyframes pulseAlert {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.35); }
+      50% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+    }
+
+    .view-panel { display: none; }
+    .view-panel.active { display: block; }
+
+    .surface-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+
+    .orders-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    .ticket-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+    }
+    .ticket-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 8px;
+      border-bottom: 1px dashed var(--border);
+    }
+    .ticket-badge {
+      background: var(--gold);
+      color: #fff;
+      padding: 3px 12px;
+      border-radius: 99px;
+      font-size: 0.82rem;
+      font-weight: 900;
+    }
+    .ticket-items { list-style: none; display: flex; flex-direction: column; gap: 7px; max-height: 240px; overflow-y: auto; }
+    .ticket-item-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface-soft);
+      padding: 7px 10px;
+      border-radius: 10px;
+      font-size: 0.84rem;
+    }
+    .qty-controls { display: flex; align-items: center; gap: 5px; }
+    .qty-btn {
+      width: 25px;
+      height: 25px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: #fff;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .qty-btn.del { background: #fee2e2; color: var(--red); border-color: #fecaca; }
+
+    .ticket-total {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+      font-size: 0.86rem;
+      font-weight: 800;
+    }
+
+    .tables-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+      gap: 14px;
+    }
+    .table-tile {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .table-tile.busy { border-color: #ef4444; background: #fef2f2; }
+    .table-tile.free { border-color: #22c55e; }
+    .status-pill {
+      display: inline-block;
+      margin: 0 auto;
+      padding: 2px 10px;
+      border-radius: 99px;
+      font-size: 0.74rem;
+      font-weight: 800;
+    }
+    .busy .status-pill { background: #fee2e2; color: var(--red); }
+    .free .status-pill { background: #dcfce7; color: var(--green); }
+
+    .btn-mini {
+      border: 1px solid var(--border);
+      background: var(--surface-soft);
+      color: var(--ink);
+      padding: 6px 12px;
+      border-radius: 9px;
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      text-decoration: none;
+    }
+    .btn-mini.gold { background: var(--gold); color: #fff; border-color: var(--gold); }
+    .btn-mini.green { background: var(--green); color: #fff; border-color: var(--green); }
+    .btn-mini.red { background: var(--red); color: #fff; border-color: var(--red); }
+    .btn-mini.blue { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .btn-mini.active-filter { background: var(--sidebar-bg); color: #fff; border-color: var(--sidebar-bg); }
+
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+    .data-table th, .data-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: right; }
+    .data-table th { background: var(--surface-soft); font-weight: 800; color: var(--muted); }
+    .thumb-img { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; }
+
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group label { font-size: 0.8rem; font-weight: 800; color: var(--muted); }
+    .form-input {
+      padding: 10px 12px;
+      border-radius: 11px;
+      border: 1.5px solid var(--border);
+      font-family: inherit;
+      font-size: 0.86rem;
+      background: #fff;
+    }
+
+    .design-studio-grid {
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap: 18px;
+      align-items: start;
+    }
+    .layouts-options-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .design-radio-card {
+      border: 1.5px solid var(--border);
+      background: var(--surface-soft);
+      border-radius: 13px;
+      padding: 11px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: 0.15s;
+    }
+    .design-radio-card.active {
+      border-color: var(--gold);
+      background: #fff7ed;
+      box-shadow: 0 3px 10px rgba(166, 94, 46, 0.14);
+    }
+
+    .qr-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+      gap: 14px;
+    }
+    .qr-select-card {
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface-soft);
+    }
+    .qr-select-card.selected { border-color: var(--gold); background: #fff; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 300;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-box {
+      background: #fff;
+      border-radius: 20px;
+      width: 100%;
+      max-width: 520px;
+      max-height: 88vh;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    .quick-pos-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 8px;
+      max-height: 55vh;
+      overflow-y: auto;
+      margin-top: 12px;
+    }
+    .quick-pos-card {
+      border: 1px solid var(--border);
+      background: var(--surface-soft);
+      border-radius: 11px;
+      padding: 8px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: right;
+    }
+
+    .toast-bar {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(25px);
+      background: #181412;
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 99px;
+      font-size: 0.85rem;
+      font-weight: 800;
+      opacity: 0;
+      pointer-events: none;
+      transition: 0.25s;
+      z-index: 999;
+    }
+    .toast-bar.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    #thermalPrintArea { display: none; }
+
+    @media (max-width: 920px) {
+      .admin-layout { grid-template-columns: 1fr; }
+      .sidebar { height: auto; position: static; flex-direction: row; flex-wrap: wrap; }
+      .design-studio-grid { grid-template-columns: 1fr; }
+    }
+
+    @media print {
+      @page {
+        size: 80mm auto;
+        margin: 3mm;
+      }
+      html, body {
+        width: 74mm !important;
+        height: auto !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        color: #000 !important;
+        overflow: visible !important;
+      }
+      body > *:not(#thermalPrintArea) {
+        display: none !important;
+      }
+      #thermalPrintArea {
+        display: block !important;
+        position: static !important;
+        width: 74mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        font-family: "Cairo", sans-serif !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="adminApp" class="admin-layout" style="display:none;">
+    <aside class="sidebar">
+      <div class="brand-box">
+        <div id="sidebarLogoWrap" class="brand-logo">☕</div>
+        <div>
+          <strong id="adminCafeName" style="display:block;font-size:0.95rem;">روست آند بيري</strong>
+          <small style="color:#a89f96;font-size:0.72rem;">لوحة الكاشير والإدارة</small>
+        </div>
+      </div>
+
+      <button class="nav-item active" data-view="viewOrders">
+        <i data-lucide="receipt"></i>
+        <span>الحسابات المفتوحة</span>
+        <span id="navOpenBadge" class="nav-badge">0</span>
+      </button>
+
+      <button class="nav-item" data-view="viewTables">
+        <i data-lucide="grid"></i>
+        <span>الترابيزات والواي فاي</span>
+      </button>
+
+      <button class="nav-item" data-view="viewMenu">
+        <i data-lucide="coffee"></i>
+        <span>إدارة المنيو</span>
+      </button>
+
+      <button class="nav-item" data-view="viewDesign">
+        <i data-lucide="palette"></i>
+        <span>تصميم المنيو (10 أنماط)</span>
+      </button>
+
+      <button class="nav-item" data-view="viewQr">
+        <i data-lucide="qr-code"></i>
+        <span>طباعة QR الترابيزات</span>
+      </button>
+
+      <button class="nav-item" data-view="viewReports">
+        <i data-lucide="bar-chart-3"></i>
+        <span>التقارير والمبيعات</span>
+      </button>
+
+      <button class="nav-item" data-view="viewSettings">
+        <i data-lucide="settings"></i>
+        <span>الإعدادات والأمان</span>
+      </button>
+
+      <div style="margin-top:auto;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);display:flex;flex-direction:column;gap:6px;">
+          <a href="../index.html" target="_blank" class="nav-item" style="text-decoration:none;color:inherit;">
+      <i data-lucide="external-link"></i>
+      <span>معاينة المنيو العام</span>
+    </a>
+        <button id="logoutBtn" class="nav-item" style="color:#fca5a5;">
+          <i data-lucide="log-out"></i>
+          <span>تسجيل الخروج</span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <div class="top-bar">
+        <div>
+          <h2 style="font-size:1.3rem;font-weight:900;">لوحة التحكم المباشرة</h2>
+          <small style="color:var(--muted);">مزامنة فورية مع جميع الترابيزات • قفل تلقائي بعد 5 دقائق خمول</small>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button id="testBellBtn" class="btn-mini gold">🔔 تجربة صوت الجرس</button>
+        </div>
+      </div>
+
+      <div id="alertsStack" class="alerts-stack"></div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <small>إجمالي الفواتير المحصلة</small>
+          <strong id="kpiTotalOrders">0</strong>
+        </div>
+        <div class="kpi-card">
+          <small>إجمالي المبيعات المحصلة</small>
+          <strong id="kpiTotalSales" style="color:var(--green);">0 ج.م</strong>
+        </div>
+        <div class="kpi-card">
+          <small>الترابيزات المتاحة</small>
+          <strong id="kpiFreeTables">20 / 20</strong>
+        </div>
+        <div class="kpi-card">
+          <small>الترابيزات المشغولة</small>
+          <strong id="kpiOccupiedTables" style="color:var(--red);">0</strong>
+        </div>
+      </div>
+
+      <section id="viewOrders" class="view-panel active">
+        <div id="ordersContainer" class="orders-grid"></div>
+      </section>
+
+      <section id="viewTables" class="view-panel">
+        <div class="surface-card">
+          <h3 style="margin-bottom:12px;font-size:1.05rem;">خريطة الترابيزات والتحكم في Wi-Fi</h3>
+          <div id="tablesGrid" class="tables-grid"></div>
+        </div>
+      </section>
+
+      <section id="viewMenu" class="view-panel">
+        <div class="surface-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+            <h3 style="font-size:1.05rem;">قائمة المشروبات والمأكولات</h3>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button id="openNewItemBtn" class="btn-mini green">+ إضافة صنف جديد</button>
+              <button id="exportFullMenuPdfBtn" class="btn-mini gold">📄 تصدير المنيو PDF</button>
+              <button id="seedDefaultsBtn" class="btn-mini">🔄 مزامنة من menu-data.js</button>
+            </div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>الصورة</th>
+                  <th>الصنف</th>
+                  <th>القسم</th>
+                  <th>السعر</th>
+                  <th>الحالة</th>
+                  <th>إجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="itemsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="viewDesign" class="view-panel">
+        <div class="design-studio-grid">
+          <div class="surface-card">
+            <h3 style="margin-bottom:12px;font-size:1.05rem;">اختيار نمط عرض المنيو للعملاء (10 أنماط)</h3>
+            <div class="layouts-options-grid">
+              <label class="design-radio-card" data-layout="luxury">
+                <input type="radio" name="menuLayout" value="luxury" style="display:none;" />
+                <strong>1. البطاقات الفاخرة (Luxury)</strong>
+                <small style="color:var(--muted);font-size:0.74rem;">صور كبيرة مع تفاصيل كاملة</small>
+              </label>
+              <label class="design-radio-card" data-layout="compact">
+                <input type="radio" name="menuLayout" value="compact" style="display:none;" />
+                <strong>2. القائمة المدمجة (Compact)</strong>
+                <small style="color:var(--muted);font-size:0.74rem;">صورة جانبية صغيرة وسريعة</small>
+              </label>
+              <label class="design-radio-card" data-layout="editorial">
+                <input type="radio" name="menuLayout" value="editorial" style="display:none;" />
+                <strong>3. المجلة العصرية (Editorial)</strong>
+                <small style="color:var(--muted);font-size:0.74rem;">صورة جانبية بارزة ووصف أنيق</small>
+              </label>
+              <label class="design-radio-card" data-layout="classic_text">
+                <input type="radio" name="menuLayout" value="classic_text" style="display:none;" />
+                <strong>4. الكلاسيك النصي (Classic)</strong>
+                <small style="color:var(--muted);font-size:0.74rem;">بدون صور لسرعة التصفح</small>
+              </label>
+              <label class="design-radio-card" data-layout="grid2">
+                <input type="radio" name="menuLayout" value="grid2" style="display:none;" />
+                <strong>5. شبكة مزدوجة (Grid 2)</strong>
+                <small style="color:var(--muted);font-size:0.74rem;">عمودين متجاورين للموبايل</small>
+              </label>
+              <label class="design-radio-card" data-layout="cinema">
+                <input type="radio" name="menuLayout" value="cinema" style="display:none;" />
+                <strong>6. العرض السينمائي (Cinema)</strong>
+                <small style="color:var(--muted);font-size:0.74rem;">صورة خلفية كاملة وتدرج داكن</small>
+              </label>
+              <label class="design-radio-card" data-layout="pill">
+                <input type="radio" name="menuLayout" value="pill" style="display:none;" />
+                <strong>7. الحواف الدائرية (Pill Soft)</strong>
+                <small style="color:var(--muted);font-size:0.74rem;">تصميم ناعم بحواف دائرية</small>
+              </label>
+              <label class="design-radio-card" data-layout="poster">
+                <input type="radio" name="menuLayout" value="poster" style="display:none;" />
+                <strong>8. البوستر الكبير (Poster)</strong>
+                <small style="color:var(--muted);font-size:0.74rem;">إبراز صور المشروبات والأطباق</small>
+              </label>
+              <label class="design-radio-card" data-layout="spotlight">
+                <input type="radio" name="menuLayout" value="spotlight" style="display:none;" />
+                <strong>9. الإطار الذهبي (Spotlight)</strong>
+                <small style="color:var(--muted);font-size:0.74rem;">إطار ملون حول كل صنف</small>
+              </label>
+              <label class="design-radio-card" data-layout="minimal">
+                <input type="radio" name="menuLayout" value="minimal" style="display:none;" />
+                <strong>10. التبسيط الهادئ (Minimal)</strong>
+                <small style="color:var(--muted);font-size:0.74rem;">تصميم نظيف بدون ظلال</small>
+              </label>
+            </div>
+
+            <div class="form-grid" style="margin-bottom:16px;">
+              <div class="form-group">
+                <label>اللون الأساسي للعلامة</label>
+                <input type="color" id="designCustomColor" class="form-input" style="height:42px;padding:4px;" />
+              </div>
+              <div class="form-group">
+                <label>لون خلفية الصفحة</label>
+                <input type="color" id="designBgColor" class="form-input" style="height:42px;padding:4px;" />
+              </div>
+              <div class="form-group">
+                <label>لون خلفية البطاقات</label>
+                <input type="color" id="designCardBg" class="form-input" style="height:42px;padding:4px;" />
+              </div>
+              <div class="form-group">
+                <label>المظهر العام</label>
+                <select id="designTheme" class="form-input">
+                  <option value="light">نهاري (Light)</option>
+                  <option value="dark">ليلي (Dark)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>نوع الخط</label>
+                <select id="designFontFamily" class="form-input">
+                  <option value="Cairo">Cairo</option>
+                  <option value="Tajawal">Tajawal</option>
+                  <option value="IBM Plex Sans Arabic">IBM Plex Sans Arabic</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>أعمدة الموبايل</label>
+                <select id="designMobileCols" class="form-input">
+                  <option value="1">عمود واحد</option>
+                  <option value="2">عمودين</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button id="saveDesignBtn" class="btn-mini gold">✔ حفظ ونشر التصميم للعملاء</button>
+              <button id="resetDesignBtn" class="btn-mini">استعادة الافتراضي</button>
+            </div>
+          </div>
+
+          <div class="surface-card" style="background:#111827;color:#fff;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <strong style="font-size:0.92rem;">معاينة حية لبطاقة الصنف</strong>
+              <span id="previewLayoutBadge" class="ticket-badge">luxury</span>
+            </div>
+            <div id="livePreviewCardBox"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="viewQr" class="view-panel">
+        <div class="surface-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+            <div>
+              <h3 style="font-size:1.05rem;">توليد وطباعة أكواد QR للترابيزات</h3>
+              <small id="qrSelectedCounter" style="color:var(--muted);">المحدد للطباعة: 20 ترابيزة</small>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <input type="text" id="qrBaseUrlInput" class="form-input" value="https://roast-and-berry.vercel.app" style="width:230px;" />
+              <input type="text" id="qrSpecificInput" class="form-input" placeholder="مثال: 1-5 أو 2,7" style="width:140px;" />
+              <button id="applySpecificQrBtn" class="btn-mini">تحديد</button>
+              <button id="selectAllQrBtn" class="btn-mini">تحديد الكل</button>
+              <button id="printSelectedQrBtn" class="btn-mini gold">🖨️ طباعة المحدد</button>
+            </div>
+          </div>
+          <div id="adminQrGrid" class="qr-grid"></div>
+        </div>
+      </section>
+
+      <section id="viewReports" class="view-panel">
+        <div class="surface-card" id="reportPrintableArea">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn-mini active-filter" data-period="today">اليوم</button>
+              <button class="btn-mini" data-period="week">آخر 7 أيام</button>
+              <button class="btn-mini" data-period="month">هذا الشهر</button>
+              <button class="btn-mini" data-period="all">الكل</button>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button id="exportExcelBtn" class="btn-mini green">📊 تصدير Excel</button>
+              <button id="exportReportPdfBtn" class="btn-mini gold">📄 تصدير PDF</button>
+            </div>
+          </div>
+
+          <div class="kpi-grid">
+            <div class="kpi-card"><small>عدد الفواتير</small><strong id="repOrdersCount">0</strong></div>
+            <div class="kpi-card"><small>متوسط الفاتورة</small><strong id="repAvgOrder">0 ج.م</strong></div>
+            <div class="kpi-card"><small>الأكثر مبيعاً</small><strong id="repTopItem" style="font-size:1rem;">--</strong></div>
+            <div class="kpi-card"><small>إجمالي الإيرادات</small><strong id="repGrandTotal" style="color:var(--green);">0 ج.م</strong></div>
+          </div>
+
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>الترابيزة</th>
+                  <th>التاريخ</th>
+                  <th>الوقت</th>
+                  <th>الأصناف</th>
+                  <th>الصافي</th>
+                  <th>الضريبة</th>
+                  <th>الإجمالي</th>
+                </tr>
+              </thead>
+              <tbody id="reportsTableBody"></tbody>
+              <tfoot>
+                <tr style="background:var(--surface-soft);font-weight:900;">
+                  <td colspan="5">الإجمالي (<span id="repFooterCount">0</span> فاتورة)</td>
+                  <td id="repFooterSub">0 ج.م</td>
+                  <td id="repFooterTax">0 ج.م</td>
+                  <td id="repFooterGrand" style="color:var(--green);">0 ج.م</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="viewSettings" class="view-panel">
+        <form id="settingsForm" class="surface-card">
+          <h3 style="margin-bottom:14px;font-size:1.05rem;">إعدادات الكافيه والواي فاي والضريبة</h3>
+          <div class="form-grid" style="margin-bottom:14px;">
+            <div class="form-group">
+              <label>اسم الكافيه</label>
+              <input type="text" id="setNameAr" class="form-input" required />
+            </div>
+            <div class="form-group">
+              <label>عدد الترابيزات</label>
+              <input type="number" id="setTotalTables" class="form-input" min="1" max="100" />
+            </div>
+            <div class="form-group">
+              <label>تفعيل ضريبة 14%</label>
+              <select id="setTaxEnabled" class="form-input">
+                <option value="true">مفعّلة (14%)</option>
+                <option value="false">معطّلة</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>حالة استقبال الطلبات</label>
+              <select id="setAccepting" class="form-input">
+                <option value="true">مفتوح يستقبل طلبات</option>
+                <option value="false">متوقف مؤقتاً</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>اسم شبكة Wi-Fi</label>
+              <input type="text" id="setWifiName" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>كلمة مرور Wi-Fi</label>
+              <input type="text" id="setWifiPass" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>احتساب رسوم على Wi-Fi</label>
+              <select id="setWifiChargeEnabled" class="form-input">
+                <option value="false">مجاني عند التفعيل</option>
+                <option value="true">إضافة رسوم تلقائية للفاتورة</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>قيمة رسوم Wi-Fi (ج.م)</label>
+              <input type="number" id="setWifiPrice" class="form-input" min="0" />
+            </div>
+            <div class="form-group">
+              <label>العنوان</label>
+              <input type="text" id="setAddressAr" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>الوصف المختصر (Tagline)</label>
+              <input type="text" id="setTaglineAr" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>شعار الكافيه (صورة)</label>
+              <input type="file" id="setLogoFile" class="form-input" accept="image/*" />
+            </div>
+          </div>
+          <button type="submit" class="btn-mini gold">✔ حفظ الإعدادات</button>
+        </form>
+
+        <form id="securityAuthForm" class="surface-card">
+          <h3 style="margin-bottom:12px;font-size:1.05rem;">تحديث بيانات دخول الإدارة</h3>
+          <div class="form-grid" style="margin-bottom:14px;">
+            <div class="form-group">
+              <label>رقم الهاتف (11 رقم)</label>
+              <input type="tel" id="authNewPhone" class="form-input" required />
+            </div>
+            <div class="form-group">
+              <label>كلمة المرور الجديدة</label>
+              <input type="password" id="authNewPass" class="form-input" placeholder="6 أحرف أو أرقام على الأقل" required />
+            </div>
+          </div>
+          <button type="submit" class="btn-mini red">🔒 تحديث بيانات الدخول</button>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <!-- مودال إضافة/تعديل صنف -->
+  <div id="itemModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <h3 style="font-size:1.05rem;">بيانات الصنف</h3>
+        <button id="closeItemModalBtn" class="btn-mini">✕</button>
+      </div>
+      <form id="itemForm" style="display:flex;flex-direction:column;gap:10px;">
+        <input type="hidden" id="editItemId" />
+        <div class="form-group">
+          <label>اسم الصنف بالعربي</label>
+          <input type="text" id="fNameAr" class="form-input" required />
+        </div>
+        <div class="form-group">
+          <label>اسم الصنف بالإنجليزي</label>
+          <input type="text" id="fNameEn" class="form-input" />
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>القسم</label>
+            <select id="fCategory" class="form-input"></select>
+          </div>
+          <div class="form-group">
+            <label>السعر (ج.م)</label>
+            <input type="number" id="fPrice" class="form-input" required />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>رابط الصورة أو رفع ملف</label>
+          <input type="text" id="fImage" class="form-input" required />
+          <input type="file" id="fImageFile" class="form-input" accept="image/*" />
+        </div>
+        <div class="form-group">
+          <label>الوصف</label>
+          <input type="text" id="fDescAr" class="form-input" />
+        </div>
+        <button type="submit" class="btn-mini gold" style="justify-content:center;padding:10px;">✔ حفظ الصنف</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- مودال الإضافة السريعة للترابيزة -->
+  <div id="quickAddPosModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width:620px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <h3 id="quickAddModalTitle" style="font-size:1.05rem;">إضافة صنف</h3>
+        <button id="closeQuickAddPosBtn" class="btn-mini">✕</button>
+      </div>
+      <input type="text" id="quickPosSearchInput" class="form-input" style="width:100%;" placeholder="ابحث باسم الصنف لإضافته فوراً..." />
+      <div id="quickPosItemsGrid" class="quick-pos-grid"></div>
+    </div>
+  </div>
+
+  <div id="thermalPrintArea"></div>
+  <div id="toastBar" class="toast-bar"></div>
+
+  <script type="module" src="./admin.js"></script>
+</body>
+</html>

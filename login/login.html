@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>تسجيل دخول الكاشير والإدارة | Roast & Berry Cafe</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b4692e'/%3E%3Cpath d='M18 24h22v12a11 11 0 0 1-22 0V24zm22 3h4a5 5 0 0 1 0 10h-4v-3h4a2 2 0 0 0 0-4h-4v-3zM16 49h28v3H16v-3z' fill='%23ffffff'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="./login.css" />
+</head>
+<body>
+
+  <div class="split-wrapper">
+    <div class="brand-side">
+      <div class="brand-badge">
+        <i data-lucide="shield-check" style="width:16px;height:16px;"></i>
+        <span>نظام POS & QR Menu الآمن</span>
+      </div>
+
+      <div class="brand-hero">
+        <h1 id="loginCafeTitle">روست آند بيري كافيه</h1>
+        <p>لوحة التحكم المركزية لإدارة الترابيزات، صلاحيات الواي فاي، استقبال أوردرات الصالة، ومتابعة الجرد اليومي.</p>
+      </div>
+
+      <ul class="feature-list">
+        <li><i data-lucide="check-circle-2" style="width:16px;height:16px;color:#fbbf24;"></i><span>تشفير كامل لبيانات الدخول وحماية الجلسة</span></li>
+        <li><i data-lucide="check-circle-2" style="width:16px;height:16px;color:#fbbf24;"></i><span>مزامنة لحظية مع طلبات العملاء والترابيزات</span></li>
+        <li><i data-lucide="check-circle-2" style="width:16px;height:16px;color:#fbbf24;"></i><span>تقارير جرد يومية وشهرية بصيغة Excel و PDF</span></li>
+      </ul>
+    </div>
+
+    <div class="form-side">
+      <div class="form-header">
+        <h2>تسجيل دخول الإدارة</h2>
+        <p>أدخل رقم الهاتف المسجل وكلمة المرور للمتابعة</p>
+      </div>
+
+      <div id="globalError" class="alert-box"></div>
+
+      <form id="adminLoginForm" novalidate>
+        <div class="field-group">
+          <label for="phoneInput">رقم الهاتف المصري (11 رقم)</label>
+          <div class="input-wrap">
+            <input
+              type="tel"
+              id="phoneInput"
+              class="ltr-input"
+              inputmode="numeric"
+              maxlength="11"
+              placeholder="01018622861"
+              autocomplete="tel"
+              required
+            />
+            <span class="input-icon-left" style="pointer-events:none;">
+              <i data-lucide="smartphone" style="width:18px;height:18px;"></i>
+            </span>
+          </div>
+          <span id="phoneError" class="error-msg">يجب إدخال رقم هاتف مصري صحيح مكون من 11 رقم</span>
+        </div>
+
+        <div class="field-group">
+          <label for="passwordInput">كلمة المرور</label>
+          <div class="input-wrap">
+            <input
+              type="password"
+              id="passwordInput"
+              class="pass-input"
+              minlength="6"
+              placeholder="••••••••"
+              autocomplete="current-password"
+              required
+            />
+            <button type="button" id="togglePassBtn" class="input-icon-left" aria-label="إظهار أو إخفاء كلمة المرور">
+              <i id="eyeIcon" data-lucide="eye" style="width:18px;height:18px;"></i>
+            </button>
+          </div>
+          <span id="passError" class="error-msg">كلمة المرور يجب ألا تقل عن 6 أحرف أو أرقام</span>
+        </div>
+
+        <button type="submit" id="loginSubmitBtn" class="submit-btn">
+          <span>تسجيل الدخول للداشبورد</span>
+          <i data-lucide="arrow-left" style="width:18px;height:18px;"></i>
+        </button>
+      </form>
+
+      <a href="../index.html" class="back-link">
+        <i data-lucide="utensils" style="width:15px;height:15px;"></i>
+        <span>العودة إلى منيو العملاء</span>
+      </a>
+    </div>
+  </div>
+
+  <script type="module" src="./login.js"></script>
+</body>
+</html>

@@ -1,226 +1,434 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl" data-theme="light">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Roast & Berry Cafe | المنيو الرقمي</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%233d281c'/%3E%3Cpath d='M20 26h20v11a10 10 0 0 1-20 0V26z' fill='%23f5efe6'/%3E%3Cpath d='M40 29h4a4 4 0 0 1 0 8h-4' fill='none' stroke='%23f5efe6' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E" />
+  <title>روست آند بيري كافيه | المنيو الرقمي</title>
+  <link id="dynamicFavicon" rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23a65e2e'/%3E%3Cpath d='M18 24h22v12a11 11 0 0 1-22 0V24zm22 3h4a5 5 0 0 1 0 10h-4v-3h4a2 2 0 0 0 0-4h-4v-3zM16 49h28v3H16v-3z' fill='%23ffffff'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=Tajawal:wght@500;700;800&family=IBM+Plex+Sans+Arabic:wght@500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    :root {
+      --primary: #a65e2e;
+      --gold: #a65e2e;
+      --bg: #f6f1eb;
+      --card-bg: #fffdf9;
+      --text: #1c1917;
+      --muted: #6b645e;
+      --border: #e5ddd3;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Cairo", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding-bottom: 45px;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .top-header {
+      background: #23150d;
+      color: #fff;
+      padding: 12px 18px;
+      position: sticky;
+      top: 0;
+      z-index: 60;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .header-inner {
+      max-width: 1240px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .brand-box { display: flex; align-items: center; gap: 11px; }
+
+    .brand-logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 13px;
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .brand-title { font-size: 1.08rem; font-weight: 900; line-height: 1.25; }
+    .brand-tagline { font-size: 0.72rem; color: #d6ccc2; }
+
+    .header-actions { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+
+    .hdr-pill {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: #fff;
+      padding: 7px 12px;
+      border-radius: 11px;
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      transition: 0.18s;
+    }
+    .hdr-pill:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-1px); }
+    .hdr-pill.bell-btn { background: rgba(245, 158, 11, 0.18); border-color: rgba(245, 158, 11, 0.5); color: #fcd34d; }
+    .hdr-pill.bill-pill { background: rgba(22, 163, 74, 0.22); border-color: rgba(74, 222, 128, 0.5); color: #86efac; }
+    .hdr-pill.cart-pill { background: var(--primary); border-color: transparent; color: #fff; padding: 7px 14px; }
+    .hdr-pill.wifi-active { background: #2563eb; border-color: #60a5fa; color: #fff; }
+
+    .badge-count {
+      background: #fff;
+      color: #1c1613;
+      padding: 1px 7px;
+      border-radius: 99px;
+      font-size: 0.74rem;
+      font-weight: 900;
+    }
+
+    .container { max-width: 1240px; margin: 0 auto; padding: 16px; }
+    .search-box { margin-bottom: 14px; }
+    .search-input {
+      width: 100%;
+      padding: 13px 18px;
+      border-radius: 15px;
+      border: 1.5px solid var(--border);
+      background: var(--card-bg);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .search-input:focus { border-color: var(--primary); }
+
+    .categories-bar {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 10px;
+      margin-bottom: 16px;
+      scrollbar-width: none;
+    }
+    .categories-bar::-webkit-scrollbar { display: none; }
+
+    .cat-pill {
+      padding: 8px 16px;
+      border-radius: 99px;
+      border: 1.5px solid var(--border);
+      background: var(--card-bg);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.84rem;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .cat-pill.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    .overlay-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.68);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 200;
+    }
+    .overlay-backdrop.open { display: flex; }
+
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(4px);
+      display: none;
+      justify-content: flex-end;
+      z-index: 220;
+    }
+    .drawer-backdrop.open { display: flex; }
+
+    .cart-drawer-panel {
+      width: 100%;
+      max-width: 430px;
+      height: 100%;
+      background: var(--card-bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      box-shadow: -12px 0 40px rgba(0, 0, 0, 0.35);
+    }
+
+    .drawer-header {
+      background: #23150d;
+      color: #fff;
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .drawer-body { flex: 1; overflow-y: auto; padding: 16px 18px; }
+    .drawer-footer { padding: 16px 18px 22px; border-top: 1px solid var(--border); background: var(--bg); }
+
+    .modal-card {
+      background: var(--card-bg);
+      color: var(--text);
+      border-radius: 22px;
+      width: 100%;
+      max-width: 440px;
+      max-height: 92vh;
+      overflow-y: auto;
+      padding: 18px;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+    }
+
+    .size-chip {
+      padding: 8px 14px;
+      border-radius: 10px;
+      border: 1.5px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .size-chip.active { border-color: var(--primary); background: var(--primary); color: #fff; }
+
+    /* شكل ريسيت العميل المضبوط بمقاس 80mm */
+    .luxury-receipt-paper {
+      background: #ffffff;
+      color: #000000;
+      border-radius: 10px;
+      padding: 10px;
+      border: 2px solid #1c1917;
+      width: 100%;
+      max-width: 300px;
+      margin: 0 auto;
+      font-family: "Cairo", sans-serif;
+    }
+
+    .toast-bar {
+      position: fixed;
+      top: 76px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: #181412;
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 99px;
+      font-size: 0.84rem;
+      font-weight: 800;
+      opacity: 0;
+      pointer-events: none;
+      transition: 0.25s;
+      z-index: 999;
+    }
+    .toast-bar.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    #customerThermalPrintArea { display: none; }
+
+    @media print {
+      @page {
+        size: 80mm auto;
+        margin: 2mm;
+      }
+      html, body {
+        width: 76mm !important;
+        height: auto !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        color: #000 !important;
+        overflow: visible !important;
+      }
+      body > *:not(#customerThermalPrintArea) {
+        display: none !important;
+      }
+      #customerThermalPrintArea {
+        display: block !important;
+        width: 76mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+    }
+  </style>
 </head>
 <body>
-  <!-- الهيدر -->
-  <header class="app-header">
-    <div class="container header-inner">
-      <div class="brand-wrap">
-        <div class="logo-svg" aria-hidden="true">
-          <svg width="42" height="42" viewBox="0 0 64 64" fill="none">
-            <rect width="64" height="64" rx="16" fill="#3d281c"/>
-            <path d="M18 24h22v12a11 11 0 0 1-22 0V24z" fill="#f7f3ed"/>
-            <path d="M40 27h4a4 4 0 0 1 0 8h-4" stroke="#f7f3ed" stroke-width="3.5" stroke-linecap="round"/>
-            <path d="M24 17c0-2 2-3 2-5M31 17c0-2 2-3 2-5" stroke="#d49a6a" stroke-width="2.5" stroke-linecap="round"/>
-          </svg>
-        </div>
+
+  <header class="top-header">
+    <div class="header-inner">
+      <div class="brand-box">
+        <div id="headerLogoWrap" class="brand-logo">☕</div>
         <div>
-          <h1 id="cafeName">روست آند بيري كافيه</h1>
-          <p id="cafeTagline" class="tagline">قهوة مختصة • فطار • عصائر فريش</p>
+          <h1 id="cafeNameHeader" class="brand-title">روست آند بيري كافيه</h1>
+          <p id="cafeTaglineHeader" class="brand-tagline">قهوة مختصة • فطار • سلطات • أطباق رئيسية • عصائر فريش وحلويات</p>
         </div>
       </div>
 
-      <div class="header-controls">
-        <button id="wifiBtn" class="icon-pill" title="Wi-Fi">
-          <i data-lucide="wifi"></i>
-          <span>Wi-Fi</span>
+      <div class="header-actions">
+        <span id="tableBadgePill" class="hdr-pill" style="display:none;cursor:default;">
+          🪑 <span id="tableBadgeText">ترابيزة 1</span>
+        </span>
+
+        <button type="button" id="wifiBtn" class="hdr-pill wifi-active" style="display:none;">
+          📶 Wi-Fi
         </button>
-        <button id="themeBtn" class="icon-pill" aria-label="تغيير المظهر">
-          <i data-lucide="moon" id="themeIcon"></i>
+
+        <button type="button" id="callWaiterBtn" class="hdr-pill bell-btn" style="display:none;">
+          🔔 نداء الويتر
         </button>
-        <button id="langBtn" class="icon-pill">EN</button>
+
+        <button type="button" id="openBillModalBtn" class="hdr-pill bill-pill" style="display:none;">
+          🧾 الحساب (<span id="activeTabTotalText">0 ج.م</span>)
+        </button>
+
+        <button type="button" id="openCartBtn" class="hdr-pill cart-pill" style="display:none;">
+          🛒 السلة <span id="cartCountBadge" class="badge-count">0</span>
+        </button>
+
+        <a href="./Homepage/Homepage.html" id="homeNavBtn" class="hdr-pill">
+  🏠 الرئيسية
+</a>
+
+        <button type="button" id="exportPublicPdfBtn" class="hdr-pill">
+          📄 تحميل المنيو PDF
+        </button>
+
+        <button type="button" id="themeToggleBtn" class="hdr-pill">
+          🌙 ليلي
+        </button>
       </div>
     </div>
   </header>
 
-  <!-- شريط الترابيزة والخدمات السريعة -->
-  <section class="table-service-bar">
-    <div class="container service-inner">
-      <div class="table-picker-box">
-        <i data-lucide="armchair"></i>
-        <label for="tableSelect" data-i18n="tableLabel">رقم الترابيزة:</label>
-        <select id="tableSelect"></select>
-      </div>
-
-      <div class="quick-service-btns">
-        <button id="callWaiterBtn" class="service-btn waiter">
-          <i data-lucide="bell-ring"></i>
-          <span data-i18n="callWaiter">نداء الويتر</span>
-        </button>
-        <button id="openMyBillBtn" class="service-btn bill">
-          <i data-lucide="receipt-text"></i>
-          <span data-i18n="myBill">حسابي / الفاتورة</span>
-        </button>
-      </div>
-    </div>
-  </section>
-
-  <!-- شريط متابعة الطلب المفتوح والعد التنازلي للترابيزة -->
-  <div id="liveTabBanner" class="live-tab-banner">
-    <div class="container banner-inner">
-      <div class="banner-status">
-        <span class="pulse-dot"></span>
-        <div>
-          <strong id="bannerStatusTitle">تم استلام طلبك بنجاح</strong>
-          <p id="bannerTimerDesc">الوقت المتبقي لنزول الطلب: <span id="countdownDisplay" class="countdown-badge">15:00</span></p>
-        </div>
-      </div>
-      <button id="bannerViewBillBtn" class="banner-action-btn" data-i18n="viewOpenTab">عرض الحساب المفتوح</button>
-    </div>
-  </div>
-
-  <!-- البحث والأقسام -->
-  <main class="container main-content">
+  <main class="container">
     <div class="search-box">
-      <i data-lucide="search"></i>
-      <input type="search" id="searchInput" placeholder="ابحث عن قهوة، فطار، عصير، حلى..." />
+      <input type="text" id="searchInput" class="search-input" placeholder="ابحث في قائمة المشروبات والمأكولات..." />
     </div>
 
-    <div class="categories-strip" id="categoriesContainer"></div>
-    <div class="menu-grid" id="menuGrid"></div>
+    <div id="categoriesBar" class="categories-bar"></div>
+    <div id="menuGrid"></div>
   </main>
 
-  <!-- الفوتر (بدون أي رابط للإدارة) -->
-  <footer class="app-footer">
-    <div class="container footer-inner">
-      <div>
-        <p id="footerAddress">شارع التسعين الشمالي، التجمع الخامس، القاهرة</p>
-        <p id="footerPhone">للحجز والاستفسار: 01009694831</p>
+  <div id="productModal" class="overlay-backdrop">
+    <div class="modal-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 id="modalTitle" style="font-size:1.1rem;font-weight:900;">اسم الصنف</h3>
+        <button type="button" id="closeProductModalBtn" style="border:none;background:rgba(0,0,0,0.08);width:32px;height:32px;border-radius:50%;cursor:pointer;font-weight:900;">✕</button>
       </div>
-    </div>
-  </footer>
-
-  <!-- شريط السلة السفلي -->
-  <div id="floatingCart" class="floating-cart" style="display: none;">
-    <button id="openCartBtn" class="cart-cta">
-      <span class="cart-badge" id="cartCount">0</span>
-      <span data-i18n="viewOrder">مراجعة وإرسال الطلب للترابيزة</span>
-      <strong id="cartTotal">0 ج.م</strong>
-    </button>
-  </div>
-
-  <!-- مودال تفاصيل الصنف -->
-  <div id="itemModal" class="modal-backdrop">
-    <div class="modal-box">
-      <button class="modal-close" id="closeItemModal">&times;</button>
-      <img id="modalImg" src="" alt="" class="modal-cover" />
-      <div class="modal-body">
-        <h3 id="modalTitle"></h3>
-        <p id="modalDesc" class="modal-desc"></p>
-
-        <div id="modalSizesWrap" class="option-group" style="display: none;">
-          <h4 data-i18n="chooseSize">اختر الحجم</h4>
-          <div id="modalSizesList" class="option-list"></div>
-        </div>
-
-        <div id="modalAddonsWrap" class="option-group" style="display: none;">
-          <h4 data-i18n="chooseAddons">إضافات اختيارية</h4>
-          <div id="modalAddonsList" class="option-list"></div>
-        </div>
-
-        <div class="option-group">
-          <h4 data-i18n="specialNotes">ملاحظات للباريستا / المطبخ</h4>
-          <input type="text" id="modalNote" class="note-input" placeholder="مثال: سكر زيادة، بدون ثلج..." />
-        </div>
-
-        <div class="modal-footer-bar">
-          <div class="qty-stepper">
-            <button type="button" id="decQty">-</button>
-            <span id="modalQty">1</span>
-            <button type="button" id="incQty">+</button>
-          </div>
-          <button type="button" id="confirmAddBtn" class="primary-btn">
-            <span data-i18n="addToOrder">إضافة للطلب</span>
-            <span id="modalItemTotal">0 ج.م</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- مودال السلة -->
-  <div id="cartModal" class="modal-backdrop">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3 data-i18n="yourOrder">طلباتك الجديدة</h3>
-        <button class="modal-close-inline" id="closeCartModal">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div id="cartItemsList" class="cart-items-list"></div>
-        <div class="bill-summary">
-          <div class="bill-row"><span data-i18n="tableNum">الترابيزة:</span><strong id="summaryTable">1</strong></div>
-          <div class="bill-row"><span data-i18n="subtotal">المجموع الفرعي:</span><span id="summarySub">0 ج.م</span></div>
-          <div class="bill-row"><span data-i18n="tax">ضريبة القيمة المضافة (14%):</span><span id="summaryTax">0 ج.م</span></div>
-          <div class="bill-row grand"><span data-i18n="total">الإجمالي:</span><strong id="summaryTotal">0 ج.م</strong></div>
-        </div>
-        <button type="button" id="submitOrderBtn" class="primary-btn full-width" data-i18n="sendToTable">
-          إرسال الطلب للترابيزة الآن
+      <img id="modalImg" src="" alt="" style="width:100%;height:200px;object-fit:cover;border-radius:14px;margin-bottom:12px;" />
+      <p id="modalDesc" style="font-size:0.84rem;color:var(--muted);margin-bottom:14px;line-height:1.5;"></p>
+      <div id="modalSizesWrap" style="display:none;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--border);">
+        <strong id="modalPrice" style="font-size:1.15rem;color:var(--primary);">0 ج.م</strong>
+        <button type="button" id="modalAddToCartBtn" style="background:var(--primary);color:#fff;border:none;padding:10px 22px;border-radius:12px;font-family:inherit;font-size:0.9rem;font-weight:800;cursor:pointer;">
+          + إضافة للسلة
         </button>
       </div>
     </div>
   </div>
 
-  <!-- مودال الفاتورة المفتوحة والـ PDF -->
-  <div id="billModal" class="modal-backdrop">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3 data-i18n="openTabTitle">فاتورة الترابيزة المفتوحة</h3>
-        <button class="modal-close-inline" id="closeBillModal">&times;</button>
+  <div id="cartDrawer" class="drawer-backdrop">
+    <div class="cart-drawer-panel">
+      <div class="drawer-header">
+        <div>
+          <h3 style="font-size:1.12rem;font-weight:900;">🛒 سلة طلباتك</h3>
+          <small id="drawerTableSubtitle" style="color:#d6ccc2;font-size:0.75rem;">ترابيزة 1</small>
+        </div>
+        <button type="button" id="closeCartBtn" style="border:none;background:rgba(255,255,255,0.14);color:#fff;width:34px;height:34px;border-radius:10px;cursor:pointer;font-weight:900;">✕</button>
       </div>
-      <div class="modal-body">
-        <div id="pdfReceiptContent" class="receipt-paper">
-          <div class="receipt-head">
-            <h4 id="billCafeName">روست آند بيري كافيه</h4>
-            <p id="billCafeAddress"></p>
-            <p id="billCafePhone"></p>
-            <div class="receipt-table-tag" id="billTableHeader">ترابيزة رقم: 1</div>
+      <div id="cartItemsList" class="drawer-body"></div>
+      <div class="drawer-footer">
+        <div style="background:var(--card-bg);border:1px solid var(--border);padding:14px;border-radius:14px;font-size:0.86rem;margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px;color:var(--muted);">
+            <span>المجموع الفرعي:</span>
+            <strong id="cartSubtotal" style="color:var(--text);">0 ج.م</strong>
           </div>
-          <div id="billItemsContainer" class="receipt-items"></div>
-          <div id="billTotalsContainer" class="receipt-totals"></div>
-          <p class="receipt-foot">شكراً لزيارتكم • نتمنى لكم وقتاً سعيداً</p>
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px;color:var(--muted);">
+            <span>ضريبة القيمة المضافة (14%):</span>
+            <strong id="cartTax" style="color:var(--text);">0 ج.م</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:1.05rem;font-weight:900;padding-top:8px;border-top:1.5px dashed var(--border);">
+            <span>الإجمالي النهائي:</span>
+            <strong id="cartGrandTotal" style="color:var(--primary);">0 ج.م</strong>
+          </div>
         </div>
-
-        <div class="bill-actions-grid">
-          <button type="button" id="downloadPdfBtn" class="secondary-btn">
-            <i data-lucide="file-down"></i>
-            <span data-i18n="downloadPdf">تحميل الإيصال PDF</span>
-          </button>
-          <button type="button" id="requestCheckBtn" class="primary-btn">
-            <i data-lucide="hand-coins"></i>
-            <span data-i18n="requestCheck">طلب الحساب (الشيك)</span>
-          </button>
-        </div>
+        <button type="button" id="confirmOrderBtn" style="width:100%;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;padding:13px 18px;border-radius:14px;font-family:inherit;font-size:0.96rem;font-weight:900;cursor:pointer;">
+          ✔ تأكيد وإرسال الطلب للكاشير
+        </button>
       </div>
     </div>
   </div>
 
-  <!-- مودال الواي فاي -->
-  <div id="wifiModal" class="modal-backdrop">
-    <div class="modal-box small-modal">
-      <div class="modal-header">
-        <h3>شبكة Wi-Fi الكافيه</h3>
-        <button class="modal-close-inline" id="closeWifiModal">&times;</button>
+  <div id="customerBillModal" class="overlay-backdrop">
+    <div class="modal-card" style="max-width:400px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 style="font-size:1.05rem;font-weight:900;">🧾 فاتورة الترابيزة</h3>
+        <button type="button" id="closeCustomerBillBtn" style="border:none;background:rgba(0,0,0,0.08);width:32px;height:32px;border-radius:50%;cursor:pointer;font-weight:900;">✕</button>
       </div>
-      <div class="modal-body wifi-body">
-        <p>اسم الشبكة: <strong id="wifiSsid">RoastBerry_5G</strong></p>
-        <p>كلمة المرور: <strong id="wifiPassword">RB@2026#Cafe</strong></p>
-        <button type="button" id="copyWifiBtn" class="primary-btn full-width">نسخ كلمة المرور</button>
+
+      <div id="customerReceiptPrintable" class="luxury-receipt-paper"></div>
+
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+        <button type="button" id="printCustomerReceiptBtn" style="flex:1;background:#23150d;color:#fff;border:none;padding:11px 12px;border-radius:12px;font-family:inherit;font-size:0.82rem;font-weight:800;cursor:pointer;">
+          🖨️ طباعة الريسيت
+        </button>
+        <button type="button" id="requestBillBtn" style="flex:1;background:#16a34a;color:#fff;border:none;padding:11px 12px;border-radius:12px;font-family:inherit;font-size:0.82rem;font-weight:900;cursor:pointer;">
+          💳 طلب الحساب
+        </button>
       </div>
     </div>
   </div>
 
-  <div id="toast" class="toast"></div>
-  <script type="module" src="js/app.js"></script>
+  <div id="wifiModal" class="overlay-backdrop">
+    <div class="modal-card" style="text-align:center;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 style="font-size:1.1rem;font-weight:900;">📶 خدمة Wi-Fi المجانية</h3>
+        <button type="button" id="closeWifiModalBtn" style="border:none;background:rgba(0,0,0,0.08);width:32px;height:32px;border-radius:50%;cursor:pointer;font-weight:900;">✕</button>
+      </div>
+      <p style="font-size:0.84rem;color:var(--muted);margin-bottom:16px;">تم تفعيل خدمة الإنترنت لترابيزتك، يمكنك الاتصال بالبيانات التالية:</p>
+      <div style="background:rgba(37,99,235,0.08);border:1.5px dashed #2563eb;border-radius:14px;padding:14px;margin-bottom:14px;">
+        <div style="margin-bottom:8px;">
+          <small style="color:var(--muted);display:block;">اسم الشبكة (SSID)</small>
+          <strong id="wifiSsidText" style="font-size:1.05rem;color:#2563eb;">RoastBerry_5G</strong>
+        </div>
+        <div>
+          <small style="color:var(--muted);display:block;">كلمة المرور (Password)</small>
+          <strong id="wifiPassText" style="font-size:1.15rem;letter-spacing:1px;">RB@2026#Cafe</strong>
+        </div>
+      </div>
+      <button type="button" id="copyWifiPassBtn" style="width:100%;background:#2563eb;color:#fff;border:none;padding:11px;border-radius:12px;font-family:inherit;font-size:0.9rem;font-weight:800;cursor:pointer;">
+        📋 نسخ كلمة المرور
+      </button>
+    </div>
+  </div>
+
+  <div id="customerThermalPrintArea"></div>
+  <div id="toastBar" class="toast-bar"></div>
+
+  <script type="module" src="./app.js"></script>
 </body>
 </html>
