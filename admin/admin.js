@@ -1297,4 +1297,39 @@ function showToast(msg) {
   setTimeout(() => bar.classList.remove("show"), 3000);
 }
 
+/* ==================== MOBILE SIDEBAR DRAWER ==================== */
+(function initMobileSidebar() {
+  const toggleBtn = document.getElementById("mobileMenuToggleBtn");
+  const sidebar = document.querySelector(".sidebar");
+  const backdrop = document.getElementById("mobileSidebarBackdrop");
+  const activeBadge = document.getElementById("mobileActiveTabBadge");
+
+  if (!toggleBtn || !sidebar) return;
+
+  const closeSidebar = () => {
+    sidebar.classList.remove("mobile-open");
+    backdrop?.classList.remove("open");
+  };
+
+  const openSidebar = () => {
+    sidebar.classList.add("mobile-open");
+    backdrop?.classList.add("open");
+  };
+
+  toggleBtn.addEventListener("click", () => {
+    if (sidebar.classList.contains("mobile-open")) closeSidebar();
+    else openSidebar();
+  });
+
+  backdrop?.addEventListener("click", closeSidebar);
+
+  sidebar.querySelectorAll(".nav-item, button, a").forEach((item) => {
+    item.addEventListener("click", () => {
+      const label = item.querySelector("span")?.textContent?.trim();
+      if (label && activeBadge) activeBadge.textContent = label.slice(0, 18);
+      if (window.innerWidth <= 900) closeSidebar();
+    });
+  });
+})();
+
 bootAdmin();
