@@ -614,38 +614,41 @@ window.printThermalReceipt = (tabKey) => {
   const area = document.getElementById("thermalPrintArea");
 
   area.innerHTML = `
-    <div style="border:2px solid #000;border-radius:8px;padding:8px;background:#fff;color:#000;box-sizing:border-box;">
-      <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:6px;">
-        <div style="font-size:16px;font-weight:900;">☕ ${settings.nameAr}</div>
-        <div style="font-size:9.5px;margin-top:2px;">${settings.addressAr}</div>
-        <div style="font-size:9.5px;margin-top:1px;">هاتف: ${settings.hotline || "01018622861"}</div>
+    <div style="width:74mm;margin:0 auto;padding:6px;border:2px solid #000;border-radius:6px;background:#fff;color:#000;font-family:Tahoma,Arial,sans-serif;direction:rtl;box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+      <div style="text-align:center;border-bottom:2px dashed #000;padding-bottom:6px;margin-bottom:6px;">
+        <div style="font-size:15px;font-weight:900;">${settings.nameAr}</div>
+        <div style="font-size:9px;margin-top:2px;">${settings.addressAr || ""}</div>
+        <div style="font-size:9px;margin-top:1px;">هاتف: <bdi>${settings.hotline || "01009694831"}</bdi></div>
       </div>
 
-      <div style="display:flex;justify-content:space-between;background:#eee;padding:4px 6px;border-radius:4px;font-size:10.5px;font-weight:800;margin-bottom:4px;">
-        <span>فاتورة #${receiptNo}</span>
-        <span>ترابيزة: ${tab.tableNumber}</span>
-      </div>
+      <table style="width:100%;font-size:10px;font-weight:bold;background:#f2f2f2;margin-bottom:5px;border-collapse:collapse;">
+        <tr>
+          <td style="padding:4px 6px;text-align:right;">فاتورة #<bdi>${receiptNo}</bdi></td>
+          <td style="padding:4px 6px;text-align:left;">ترابيزة: <bdi>${tab.tableNumber}</bdi></td>
+        </tr>
+        <tr>
+          <td colspan="2" style="padding:2px 6px 4px;text-align:center;font-size:9px;font-weight:normal;border-top:1px solid #ddd;">
+            <bdi>${new Date().toLocaleDateString("en-GB")}</bdi> — <bdi>${new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}</bdi>
+          </td>
+        </tr>
+      </table>
 
-      <div style="font-size:9.5px;text-align:center;margin-bottom:6px;font-weight:600;">
-        ${new Date().toLocaleDateString("ar-EG")} • ${new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
-      </div>
-
-      <table style="width:100%;border-collapse:collapse;font-size:10.5px;margin-bottom:7px;">
+      <table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:6px;">
         <thead>
           <tr style="background:#000;color:#fff;">
-            <th style="text-align:right;padding:4px 5px;">الصنف</th>
-            <th style="text-align:center;padding:4px 4px;">الكمية</th>
-            <th style="text-align:left;padding:4px 5px;">السعر</th>
+            <th style="text-align:right;padding:4px 5px;width:58%;">الصنف</th>
+            <th style="text-align:center;padding:4px 3px;width:17%;">الكمية</th>
+            <th style="text-align:left;padding:4px 5px;width:25%;">السعر</th>
           </tr>
         </thead>
         <tbody>
           ${(tab.items || [])
             .map(
               (i) => `
-              <tr style="border-bottom:1px dashed #888;">
-                <td style="padding:4px;font-weight:700;">${i.nameAr} ${i.sizeAr ? `(${i.sizeAr})` : ""}</td>
-                <td style="text-align:center;padding:4px;font-weight:800;">${i.qty}</td>
-                <td style="text-align:left;padding:4px;font-weight:800;">${i.totalPrice}</td>
+              <tr style="border-bottom:1px dashed #999;">
+                <td style="padding:4px 3px;text-align:right;font-weight:bold;">${i.nameAr} ${i.sizeAr ? `(${i.sizeAr})` : ""}</td>
+                <td style="padding:4px 3px;text-align:center;font-weight:bold;"><bdi>${i.qty}</bdi></td>
+                <td style="padding:4px 3px;text-align:left;font-weight:bold;"><bdi>${i.totalPrice}</bdi></td>
               </tr>
             `
             )
@@ -653,30 +656,29 @@ window.printThermalReceipt = (tabKey) => {
         </tbody>
       </table>
 
-      <div style="border-top:1.5px solid #000;padding-top:5px;font-size:10.5px;">
-        <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-          <span>المجموع الفرعي:</span>
-          <strong>${tab.subtotal} ج.م</strong>
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
-          <span>ضريبة القيمة المضافة (14%):</span>
-          <strong>${tab.tax} ج.م</strong>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:900;border:2px solid #000;padding:4px 7px;border-radius:5px;background:#f5f5f5;">
-          <span>الإجمالي المطلوب:</span>
-          <span>${tab.total} ج.م</span>
-        </div>
-      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:10px;border-top:1.5px solid #000;">
+        <tr>
+          <td style="padding:3px 2px;text-align:right;">المجموع الفرعي:</td>
+          <td style="padding:3px 2px;text-align:left;font-weight:bold;"><bdi>${tab.subtotal} ج.م</bdi></td>
+        </tr>
+        <tr>
+          <td style="padding:3px 2px;text-align:right;">ضريبة القيمة المضافة (14%):</td>
+          <td style="padding:3px 2px;text-align:left;font-weight:bold;"><bdi>${tab.tax} ج.م</bdi></td>
+        </tr>
+        <tr style="background:#000;color:#fff;font-size:12px;font-weight:bold;">
+          <td style="padding:5px 6px;text-align:right;">الإجمالي المطلوب:</td>
+          <td style="padding:5px 6px;text-align:left;"><bdi>${tab.total} ج.م</bdi></td>
+        </tr>
+      </table>
 
-      <div style="text-align:center;margin-top:8px;border-top:1px dashed #000;padding-top:5px;font-size:10.5px;font-weight:800;">
-        شرفتونا في ${settings.nameAr} ☕<br/>
-        <span style="font-size:8.5px;font-weight:600;">الأسعار شاملة الضريبة</span>
+      <div style="text-align:center;margin-top:7px;border-top:1px dashed #000;padding-top:5px;font-size:9.5px;font-weight:bold;">
+        شرفتونا في ${settings.nameAr}<br/>
+        <span style="font-size:8.5px;font-weight:normal;">الأسعار شاملة ضريبة القيمة المضافة</span>
       </div>
     </div>
   `;
   window.print();
 };
-
 /* ==================== MENU ITEMS CRUD & PDF ==================== */
 function populateCategorySelect() {
   const sel = document.getElementById("fCategory");
@@ -937,42 +939,43 @@ document.getElementById("exportReportPdfBtn").addEventListener("click", () => {
 
   const wrapper = document.createElement("div");
   wrapper.dir = "rtl";
-  wrapper.style.padding = "20px";
-  wrapper.style.fontFamily = "Arial, Tahoma, sans-serif";
-  wrapper.style.letterSpacing = "normal";
-  wrapper.style.wordSpacing = "normal";
+  wrapper.style.padding = "16px";
+  wrapper.style.fontFamily = "Tahoma, Arial, sans-serif";
   wrapper.style.background = "#ffffff";
   wrapper.style.color = "#1c1917";
+  wrapper.style.width = "100%";
 
   wrapper.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #a65e2e;padding-bottom:12px;margin-bottom:16px;">
-      <div>
-        <h2 style="margin:0 0 4px;color:#23150d;font-size:20px;">تقرير المبيعات والحسابات — ${settings.nameAr}</h2>
-        <div style="font-size:11.5px;color:#57534e;">${settings.addressAr || ""} | هاتف: ${settings.hotline || "01018622861"}</div>
-      </div>
-      <div style="text-align:left;font-size:11.5px;color:#57534e;">
-        <div><strong>تاريخ التصدير:</strong> ${new Date().toLocaleDateString("ar-EG")}</div>
-        <div><strong>عدد الفواتير:</strong> ${count} فاتورة</div>
-      </div>
-    </div>
-
-    <table style="width:100%;border-collapse:separate;border-spacing:8px 0;margin-bottom:16px;">
+    <table style="width:100%;border-bottom:3px solid #a65e2e;margin-bottom:14px;padding-bottom:10px;">
       <tr>
-        <td style="background:#faf8f5;border:1.5px solid #e5ded5;border-radius:10px;padding:10px;text-align:center;width:25%;">
-          <div style="font-size:11px;color:#6e665f;margin-bottom:3px;">عدد الفواتير</div>
-          <div style="font-size:17px;font-weight:bold;color:#1c1917;">${count}</div>
+        <td style="text-align:right;vertical-align:top;">
+          <div style="font-size:18px;font-weight:bold;color:#23150d;margin-bottom:4px;">تقرير المبيعات والحسابات — ${settings.nameAr}</div>
+          <div style="font-size:11px;color:#57534e;">${settings.addressAr || ""} | هاتف: <bdi>${settings.hotline || "01009694831"}</bdi></div>
         </td>
-        <td style="background:#faf8f5;border:1.5px solid #e5ded5;border-radius:10px;padding:10px;text-align:center;width:25%;">
-          <div style="font-size:11px;color:#6e665f;margin-bottom:3px;">متوسط الفاتورة</div>
-          <div style="font-size:17px;font-weight:bold;color:#a65e2e;">${avgOrder} ج.م</div>
+        <td style="text-align:left;vertical-align:top;font-size:11px;color:#57534e;">
+          <div><strong>تاريخ التصدير:</strong> <bdi>${new Date().toLocaleDateString("en-GB")}</bdi></div>
+          <div><strong>إجمالي الفواتير:</strong> <bdi>${count}</bdi> فاتورة</div>
         </td>
-        <td style="background:#faf8f5;border:1.5px solid #e5ded5;border-radius:10px;padding:10px;text-align:center;width:25%;">
-          <div style="font-size:11px;color:#6e665f;margin-bottom:3px;">إجمالي الضريبة</div>
-          <div style="font-size:17px;font-weight:bold;color:#1c1917;">${taxTotal} ج.م</div>
+      </tr>
+    </table>
+
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;text-align:center;">
+      <tr>
+        <td style="border:1px solid #d6ccc2;background:#faf8f5;padding:10px;width:25%;">
+          <div style="font-size:11px;color:#6e665f;margin-bottom:4px;">عدد الفواتير</div>
+          <div style="font-size:16px;font-weight:bold;color:#1c1917;"><bdi>${count}</bdi></div>
         </td>
-        <td style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:10px;text-align:center;width:25%;">
-          <div style="font-size:11px;color:#15803d;margin-bottom:3px;">إجمالي الإيرادات</div>
-          <div style="font-size:18px;font-weight:bold;color:#15803d;">${grandTotal} ج.م</div>
+        <td style="border:1px solid #d6ccc2;background:#faf8f5;padding:10px;width:25%;">
+          <div style="font-size:11px;color:#6e665f;margin-bottom:4px;">متوسط الفاتورة</div>
+          <div style="font-size:16px;font-weight:bold;color:#a65e2e;"><bdi>${avgOrder} ج.م</bdi></div>
+        </td>
+        <td style="border:1px solid #d6ccc2;background:#faf8f5;padding:10px;width:25%;">
+          <div style="font-size:11px;color:#6e665f;margin-bottom:4px;">إجمالي الضريبة</div>
+          <div style="font-size:16px;font-weight:bold;color:#1c1917;"><bdi>${taxTotal} ج.م</bdi></div>
+        </td>
+        <td style="border:1px solid #86efac;background:#f0fdf4;padding:10px;width:25%;">
+          <div style="font-size:11px;color:#15803d;margin-bottom:4px;">إجمالي الإيرادات</div>
+          <div style="font-size:17px;font-weight:bold;color:#15803d;"><bdi>${grandTotal} ج.م</bdi></div>
         </td>
       </tr>
     </table>
@@ -980,13 +983,13 @@ document.getElementById("exportReportPdfBtn").addEventListener("click", () => {
     <table style="width:100%;border-collapse:collapse;font-size:11px;">
       <thead>
         <tr style="background:#23150d;color:#ffffff;">
-          <th style="padding:8px 6px;border:1px solid #23150d;width:45px;">#</th>
-          <th style="padding:8px 6px;border:1px solid #23150d;width:85px;">الترابيزة</th>
-          <th style="padding:8px 6px;border:1px solid #23150d;width:130px;">التاريخ والوقت</th>
+          <th style="padding:8px 6px;border:1px solid #23150d;text-align:center;width:45px;">#</th>
+          <th style="padding:8px 6px;border:1px solid #23150d;text-align:center;width:85px;">الترابيزة</th>
+          <th style="padding:8px 6px;border:1px solid #23150d;text-align:center;width:130px;">التاريخ والوقت</th>
           <th style="padding:8px 8px;border:1px solid #23150d;text-align:right;">الأصناف المطلوبة</th>
-          <th style="padding:8px 6px;border:1px solid #23150d;width:80px;">الصافي</th>
-          <th style="padding:8px 6px;border:1px solid #23150d;width:80px;">الضريبة</th>
-          <th style="padding:8px 6px;border:1px solid #23150d;width:90px;">الإجمالي</th>
+          <th style="padding:8px 6px;border:1px solid #23150d;text-align:center;width:80px;">الصافي</th>
+          <th style="padding:8px 6px;border:1px solid #23150d;text-align:center;width:80px;">الضريبة</th>
+          <th style="padding:8px 6px;border:1px solid #23150d;text-align:center;width:90px;">الإجمالي</th>
         </tr>
       </thead>
       <tbody>
@@ -994,13 +997,13 @@ document.getElementById("exportReportPdfBtn").addEventListener("click", () => {
           .map(
             (s, idx) => `
           <tr style="background:${idx % 2 === 0 ? "#ffffff" : "#faf8f5"};page-break-inside:avoid;">
-            <td style="padding:7px 6px;border:1px solid #e5ded5;text-align:center;font-weight:bold;">${count - idx}</td>
-            <td style="padding:7px 6px;border:1px solid #e5ded5;text-align:center;white-space:nowrap;">ترابيزة ${s.tableNumber}</td>
-            <td style="padding:7px 6px;border:1px solid #e5ded5;text-align:center;white-space:nowrap;">${s.dateISO || ""} | ${s.closedAt || ""}</td>
-            <td style="padding:7px 8px;border:1px solid #e5ded5;line-height:1.45;">${(s.items || []).map((i) => `${i.qty} × ${i.nameAr}`).join(" ، ")}</td>
-            <td style="padding:7px 6px;border:1px solid #e5ded5;text-align:center;white-space:nowrap;">${s.subtotal || 0} ج.م</td>
-            <td style="padding:7px 6px;border:1px solid #e5ded5;text-align:center;white-space:nowrap;">${s.tax || 0} ج.م</td>
-            <td style="padding:7px 6px;border:1px solid #e5ded5;text-align:center;white-space:nowrap;font-weight:bold;color:#15803d;">${s.total || 0} ج.م</td>
+            <td style="padding:7px 6px;border:1px solid #d6ccc2;text-align:center;font-weight:bold;"><bdi>${count - idx}</bdi></td>
+            <td style="padding:7px 6px;border:1px solid #d6ccc2;text-align:center;">ترابيزة <bdi>${s.tableNumber}</bdi></td>
+            <td style="padding:7px 6px;border:1px solid #d6ccc2;text-align:center;"><bdi>${s.dateISO || ""}</bdi><br/><small><bdi>${s.closedAt || ""}</bdi></small></td>
+            <td style="padding:7px 8px;border:1px solid #d6ccc2;text-align:right;line-height:1.5;">${(s.items || []).map((i) => `<bdi>${i.qty}</bdi> × ${i.nameAr}`).join(" ، ")}</td>
+            <td style="padding:7px 6px;border:1px solid #d6ccc2;text-align:center;"><bdi>${s.subtotal || 0} ج.م</bdi></td>
+            <td style="padding:7px 6px;border:1px solid #d6ccc2;text-align:center;"><bdi>${s.tax || 0} ج.م</bdi></td>
+            <td style="padding:7px 6px;border:1px solid #d6ccc2;text-align:center;font-weight:bold;color:#15803d;"><bdi>${s.total || 0} ج.م</bdi></td>
           </tr>
         `
           )
@@ -1008,10 +1011,10 @@ document.getElementById("exportReportPdfBtn").addEventListener("click", () => {
       </tbody>
       <tfoot>
         <tr style="background:#f3efe9;font-weight:bold;font-size:12px;">
-          <td colspan="4" style="padding:9px 8px;border:1px solid #d6ccc2;text-align:right;">الإجمالي الكلي (${count} فاتورة)</td>
-          <td style="padding:9px 6px;border:1px solid #d6ccc2;text-align:center;white-space:nowrap;">${subTotal} ج.م</td>
-          <td style="padding:9px 6px;border:1px solid #d6ccc2;text-align:center;white-space:nowrap;">${taxTotal} ج.م</td>
-          <td style="padding:9px 6px;border:1px solid #d6ccc2;text-align:center;white-space:nowrap;color:#15803d;">${grandTotal} ج.م</td>
+          <td colspan="4" style="padding:9px 8px;border:1px solid #bcaaa4;text-align:right;">الإجمالي الكلي (<bdi>${count}</bdi> فاتورة)</td>
+          <td style="padding:9px 6px;border:1px solid #bcaaa4;text-align:center;"><bdi>${subTotal} ج.م</bdi></td>
+          <td style="padding:9px 6px;border:1px solid #bcaaa4;text-align:center;"><bdi>${taxTotal} ج.م</bdi></td>
+          <td style="padding:9px 6px;border:1px solid #bcaaa4;text-align:center;color:#15803d;"><bdi>${grandTotal} ج.م</bdi></td>
         </tr>
       </tfoot>
     </table>
@@ -1021,7 +1024,7 @@ document.getElementById("exportReportPdfBtn").addEventListener("click", () => {
     .set({
       margin: 8,
       filename: `RoastBerry-Sales-${currentReportPeriod}.pdf`,
-      html2canvas: { scale: 2, letterRendering: false },
+      html2canvas: { scale: 2, useCORS: true, letterRendering: false },
       jsPDF: { unit: "mm", format: "a4", orientation: "landscape" }
     })
     .from(wrapper)
