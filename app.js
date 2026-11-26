@@ -45,17 +45,19 @@ let searchQuery = "";
 let selectedProduct = null;
 let selectedSizeIndex = 0;
 let currentOpenTab = null;
+let isSubmittingOrder = false;
 
 let settings = {
   nameAr: "روست آند بيري كافيه",
   taglineAr: "قهوة مختصة • فطار • سلطات • أطباق رئيسية • عصائر فريش وحلويات",
-  addressAr: "شارع التسعين الشمالي، التجمع الخامس، القاهرة",
-  hotline: "01018622861",
+  addressAr: "القاهرة، مصر",
+  hotline: "",
+  whatsapp: "",
+  facebook: "",
+  instagram: "",
+  tiktok: "",
   taxEnabled: true,
   acceptingOrders: true,
-  wifiName: "RoastBerry_5G",
-  wifiPass: "RB@2026#Cafe",
-  wifiPermissions: {},
   logoUrl: ""
 };
 
@@ -69,30 +71,16 @@ let design = {
   mobileCols: "1"
 };
 
-async function bootApp() {
+function bootApp() {
   configureViewMode();
   renderCategories();
   renderMenuGrid();
-
-  try {
-    const snap = await get(ref(db, "menuItems"));
-    const dbCount = snap.exists() ? Object.keys(snap.val()).length : 0;
-    if (LOCAL_MENU_ITEMS.length > 0 && dbCount !== LOCAL_MENU_ITEMS.length) {
-      if (LOCAL_CATEGORIES.length) await set(ref(db, "categories"), LOCAL_CATEGORIES);
-      const itemsMap = {};
-      LOCAL_MENU_ITEMS.forEach((it) => (itemsMap[it.id] = it));
-      await set(ref(db, "menuItems"), itemsMap);
-    }
-  } catch (e) {
-    console.error(e);
-  }
+  applyBrandSettings();
 
   onValue(ref(db, "settings"), (snap) => {
     if (snap.exists()) {
       settings = { ...settings, ...snap.val() };
-      if (!settings.wifiPermissions) settings.wifiPermissions = {};
       applyBrandSettings();
-      updateWifiButtonVisibility();
       renderCart();
       renderCustomerReceipt();
     }
@@ -160,6 +148,20 @@ function configureViewMode() {
   }
 }
 
+function normalizeWhatsappUrl(raw) {
+  const digits = String(raw || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("01") && digits.length === 11) return `https://wa.me/2${digits}`;
+  return `https://wa.me/${digits}`;
+}
+
+function sanitizeExternalUrl(url) {
+  const trimmed = String(url || "").trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
 function applyBrandSettings() {
   document.title = `${settings.nameAr} | المنيو الرقمي`;
   const titleEl = document.getElementById("cafeNameHeader");
@@ -167,10 +169,29 @@ function applyBrandSettings() {
   if (titleEl) titleEl.textContent = settings.nameAr;
   if (tagEl) tagEl.textContent = settings.taglineAr;
 
-  const wifiSsidEl = document.getElementById("wifiSsidText");
-  const wifiPassEl = document.getElementById("wifiPassText");
-  if (wifiSsidEl) wifiSsidEl.textContent = settings.wifiName || "RoastBerry_5G";
-  if (wifiPassEl) wifiPassEl.textContent = settings.wifiPass || "RB@2026#Cafe";
+  const addrEl = document.getElementById("footerAddressText");
+  if (addrEl) {
+    const parts = [settings.addressAr || "القاهرة، مصر"];
+    if (settings.hotline) parts.push(`هاتف: ${settings.hotline}`);
+    addrEl.textContent = parts.join(" • ");
+  }
+
+  const socialRow = document.getElementById("socialLinksRow");
+  if (socialRow) {
+    const links = [];
+    const waUrl = normalizeWhatsappUrl(settings.whatsapp);
+    const fbUrl = sanitizeExternalUrl(settings.facebook);
+    const igUrl = sanitizeExternalUrl(settings.instagram);
+    const ttUrl = sanitizeExternalUrl(settings.tiktok);
+
+    if (waUrl) links.push(`<a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="social-chip">💬 واتساب</a>`);
+    if (fbUrl) links.push(`<a href="${fbUrl}" target="_blank" rel="noopener noreferrer" class="social-chip">📘 فيسبوك</a>`);
+    if (igUrl) links.push(`<a href="${igUrl}" target="_blank" rel="noopener noreferrer" class="social-chip">📸 إنستجرام</a>`);
+    if (ttUrl) links.push(`<a href="${ttUrl}" target="_blank" rel="noopener noreferrer" class="social-chip">🎵 تيك توك</a>`);
+
+    socialRow.innerHTML = links.join("");
+    socialRow.style.display = links.length ? "flex" : "none";
+  }
 
   if (settings.logoUrl) {
     const logoWrap = document.getElementById("headerLogoWrap");
@@ -178,18 +199,6 @@ function applyBrandSettings() {
     const fav = document.getElementById("dynamicFavicon");
     if (fav) fav.href = settings.logoUrl;
   }
-}
-
-function updateWifiButtonVisibility() {
-  const wifiBtn = document.getElementById("wifiBtn");
-  const wifiModal = document.getElementById("wifiModal");
-  if (!isTableMode) {
-    if (wifiBtn) wifiBtn.style.display = "none";
-    return;
-  }
-  const isAllowed = Boolean(settings.wifiPermissions && settings.wifiPermissions[`table_${currentTable}`] === true);
-  if (wifiBtn) wifiBtn.style.display = isAllowed ? "inline-flex" : "none";
-  if (!isAllowed && wifiModal) wifiModal.classList.remove("open");
 }
 
 function applyDesignTheme() {
@@ -219,7 +228,6 @@ document.getElementById("themeToggleBtn")?.addEventListener("click", () => {
   renderMenuGrid();
 });
 
-/* ==================== تصدير كتالوج المنيو PDF ==================== */
 document.getElementById("exportPublicPdfBtn")?.addEventListener("click", () => {
   if (typeof html2pdf === "undefined") return showToast("جاري تحميل أداة الطباعة...");
   showToast(`جاري تجهيز كتالوج المنيو (${menuItems.length} صنف) PDF...`);
@@ -227,8 +235,6 @@ document.getElementById("exportPublicPdfBtn")?.addEventListener("click", () => {
   const wrapper = document.createElement("div");
   wrapper.style.padding = "18px";
   wrapper.style.fontFamily = "Arial, Tahoma, sans-serif";
-  wrapper.style.letterSpacing = "normal";
-  wrapper.style.wordSpacing = "normal";
   wrapper.dir = "rtl";
   wrapper.style.background = "#ffffff";
   wrapper.style.color = "#1c1917";
@@ -237,7 +243,7 @@ document.getElementById("exportPublicPdfBtn")?.addEventListener("click", () => {
     <div style="text-align:center;border-bottom:3px solid #a65e2e;padding-bottom:12px;margin-bottom:18px;">
       <h1 style="color:#23150d;font-size:22px;margin-bottom:4px;">${settings.nameAr}</h1>
       <p style="color:#57534e;font-size:12px;margin-bottom:3px;">${settings.taglineAr}</p>
-      <p style="color:#a65e2e;font-size:11px;">${settings.addressAr || ""} | هاتف: ${settings.hotline || "01018622861"}</p>
+      <p style="color:#a65e2e;font-size:11px;">${settings.addressAr || "القاهرة، مصر"} ${settings.hotline ? `| هاتف: ${settings.hotline}` : ""}</p>
     </div>
   `;
 
@@ -289,7 +295,6 @@ document.getElementById("exportPublicPdfBtn")?.addEventListener("click", () => {
     .save();
 });
 
-/* ==================== CATEGORIES & MENU RENDERING ==================== */
 function renderCategories() {
   const container = document.getElementById("categoriesBar");
   if (!container) return;
@@ -321,7 +326,6 @@ function renderMenuGrid() {
   const searchInp = document.getElementById("searchInput");
   if (searchInp) searchInp.placeholder = `ابحث في قائمة المشروبات والمأكولات (${menuItems.length} صنف)...`;
 
-  // بحث ذكي بالكلمات وتطبيع الهمزات والتاء المربوطة
   const normalizeAr = (str) =>
     (str || "")
       .toLowerCase()
@@ -451,7 +455,6 @@ function renderMenuGrid() {
     .join("");
 }
 
-/* ==================== PRODUCT MODAL & CART ==================== */
 window.openItemModal = (itemId) => {
   const item = menuItems.find((m) => m.id === itemId);
   if (!item) return;
@@ -605,54 +608,83 @@ window.changeCartQty = (idx, delta) => {
 };
 
 async function submitOrderToKitchen() {
-  if (!isTableMode) return;
+  if (!isTableMode || isSubmittingOrder) return;
   if (!cart.length) return showToast("السلة فارغة!");
   if (settings.acceptingOrders === false) return showToast("عذراً، استقبال الطلبات متوقف حالياً");
 
-  const tabKey = `table_${currentTable}`;
-  const tabRef = ref(db, `activeTabs/${tabKey}`);
-  const snap = await get(tabRef);
-  const existing = snap.exists() && snap.val().status === "open" ? snap.val() : null;
+  const confirmBtn = document.getElementById("confirmOrderBtn");
+  isSubmittingOrder = true;
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.style.opacity = "0.7";
+    confirmBtn.textContent = "جاري الإرسال...";
+  }
 
-  const mergedItems = existing && Array.isArray(existing.items) ? JSON.parse(JSON.stringify(existing.items)) : [];
+  try {
+    const tabKey = `table_${currentTable}`;
+    const tabRef = ref(db, `activeTabs/${tabKey}`);
+    const snap = await get(tabRef);
+    const existing = snap.exists() && snap.val().status === "open" ? snap.val() : null;
 
-  cart.forEach((newItem) => {
-    const foundIdx = mergedItems.findIndex((m) => m.id === newItem.id && (m.sizeAr || "") === (newItem.sizeAr || ""));
-    if (foundIdx > -1) {
-      mergedItems[foundIdx].qty += newItem.qty;
-      mergedItems[foundIdx].totalPrice = mergedItems[foundIdx].qty * mergedItems[foundIdx].unitPrice;
-    } else {
-      mergedItems.push({
-        id: newItem.id,
-        nameAr: newItem.nameAr,
-        sizeAr: newItem.sizeAr || "",
-        qty: newItem.qty,
-        unitPrice: newItem.unitPrice,
-        totalPrice: newItem.totalPrice
-      });
+    const mergedItems = existing && Array.isArray(existing.items) ? JSON.parse(JSON.stringify(existing.items)) : [];
+
+    cart.forEach((newItem) => {
+      const foundIdx = mergedItems.findIndex((m) => m.id === newItem.id && (m.sizeAr || "") === (newItem.sizeAr || ""));
+      if (foundIdx > -1) {
+        mergedItems[foundIdx].qty += newItem.qty;
+        mergedItems[foundIdx].totalPrice = mergedItems[foundIdx].qty * mergedItems[foundIdx].unitPrice;
+      } else {
+        mergedItems.push({
+          id: newItem.id,
+          nameAr: newItem.nameAr,
+          sizeAr: newItem.sizeAr || "",
+          qty: newItem.qty,
+          unitPrice: newItem.unitPrice,
+          totalPrice: newItem.totalPrice
+        });
+      }
+    });
+
+    const subtotal = mergedItems.reduce((s, i) => s + Number(i.totalPrice), 0);
+    const tax = settings.taxEnabled !== false ? Math.round(subtotal * 0.14) : 0;
+    const nowTs = Date.now();
+    const orderNumber = existing?.orderNumber || String(nowTs).slice(-5);
+    const nowStr = new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
+
+    await set(tabRef, {
+      orderNumber,
+      tableNumber: String(currentTable),
+      status: "open",
+      items: mergedItems,
+      subtotal,
+      tax,
+      total: subtotal + tax,
+      openedAt: existing?.openedAt || nowStr,
+      lastUpdatedAt: nowStr,
+      alertTimestamp: nowTs
+    });
+
+    cart = [];
+    renderCart();
+    document.getElementById("cartDrawer")?.classList.remove("open");
+
+    const banner = document.getElementById("orderConfirmBanner");
+    const bannerText = document.getElementById("orderConfirmText");
+    if (banner && bannerText) {
+      bannerText.textContent = `✅ تم استلام طلبك بنجاح! رقم الطلب: #${orderNumber} (ترابيزة ${currentTable})`;
+      banner.classList.add("show");
     }
-  });
-
-  const subtotal = mergedItems.reduce((s, i) => s + Number(i.totalPrice), 0);
-  const tax = settings.taxEnabled !== false ? Math.round(subtotal * 0.14) : 0;
-  const nowStr = new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
-
-  await set(tabRef, {
-    tableNumber: String(currentTable),
-    status: "open",
-    items: mergedItems,
-    subtotal,
-    tax,
-    total: subtotal + tax,
-    openedAt: existing?.openedAt || nowStr,
-    lastUpdatedAt: nowStr,
-    alertTimestamp: Date.now()
-  });
-
-  cart = [];
-  renderCart();
-  document.getElementById("cartDrawer")?.classList.remove("open");
-  showToast("✅ تم إرسال طلبك للكاشير بنجاح!");
+    showToast(`✅ تم إرسال الطلب #${orderNumber} للكاشير`);
+  } catch (err) {
+    showToast("حدث خطأ أثناء إرسال الطلب، حاول مرة أخرى.");
+  } finally {
+    isSubmittingOrder = false;
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.style.opacity = "1";
+      confirmBtn.textContent = "✔ تأكيد وإرسال الطلب للكاشير";
+    }
+  }
 }
 
 function listenToActiveTableTab(tableNum) {
@@ -676,13 +708,13 @@ function listenToActiveTableTab(tableNum) {
 }
 
 function buildCustomerReceiptHtml(tab) {
-  const invNo = String(tab.alertTimestamp || Date.now()).slice(-5);
+  const invNo = tab.orderNumber || String(tab.alertTimestamp || Date.now()).slice(-5);
   return `
     <div style="border:2px solid #000;border-radius:8px;padding:8px;background:#fff;color:#000;font-family:'Cairo',sans-serif;box-sizing:border-box;">
       <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:6px;">
         <div style="font-size:15px;font-weight:900;">☕ ${settings.nameAr}</div>
-        <div style="font-size:9px;color:#333;margin-top:2px;">${settings.addressAr || ""}</div>
-        <div style="font-size:9px;color:#333;">هاتف: ${settings.hotline || "01018622861"}</div>
+        <div style="font-size:9px;color:#333;margin-top:2px;">${settings.addressAr || "القاهرة، مصر"}</div>
+        ${settings.hotline ? `<div style="font-size:9px;color:#333;">هاتف: ${settings.hotline}</div>` : ""}
       </div>
 
       <div style="display:flex;justify-content:space-between;background:#f3f4f6;padding:4px 6px;border-radius:4px;font-size:10px;font-weight:800;margin-bottom:4px;">
@@ -748,18 +780,14 @@ function renderCustomerReceipt() {
 
 async function sendWaiterAlert(type = "waiter") {
   if (!isTableMode) return;
-  let currentTotal = 0;
-  if (type === "bill") {
-    const snap = await get(ref(db, `activeTabs/table_${currentTable}`));
-    if (snap.exists()) currentTotal = snap.val().total || 0;
-  }
+  const total = type === "bill" && currentOpenTab ? Number(currentOpenTab.total || 0) : 0;
 
   const callId = `call_${Date.now()}`;
   await set(ref(db, `waiterCalls/${callId}`), {
     id: callId,
     table: String(currentTable),
     type,
-    total: currentTotal,
+    total,
     status: "active",
     createdAt: Date.now(),
     timeFormatted: new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })
@@ -817,18 +845,6 @@ document.getElementById("callWaiterBtn")?.addEventListener("click", () => sendWa
 document.getElementById("requestBillBtn")?.addEventListener("click", () => {
   sendWaiterAlert("bill");
   document.getElementById("customerBillModal")?.classList.remove("open");
-});
-
-document.getElementById("wifiBtn")?.addEventListener("click", () => {
-  document.getElementById("wifiModal")?.classList.add("open");
-});
-document.getElementById("closeWifiModalBtn")?.addEventListener("click", () => {
-  document.getElementById("wifiModal")?.classList.remove("open");
-});
-
-document.getElementById("copyWifiPassBtn")?.addEventListener("click", () => {
-  navigator.clipboard?.writeText(settings.wifiPass || "");
-  showToast("تم نسخ باسورد Wi-Fi");
 });
 
 function showToast(msg) {

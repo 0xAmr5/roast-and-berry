@@ -40,7 +40,6 @@
       overflow-x: hidden;
     }
 
-    /* إخفاء عناصر الموبايل تماماً في شاشات الديسكتوب */
     .mobile-admin-topbar,
     .mobile-backdrop,
     .mobile-close-sidebar {
@@ -201,6 +200,12 @@
       animation: pulseAlert 1.5s infinite;
     }
 
+    .alert-card.wifi-req {
+      background: #dbeafe;
+      border-color: #2563eb;
+      color: #1e3a8a;
+    }
+
     @keyframes pulseAlert {
       0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.35); }
       50% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
@@ -310,7 +315,7 @@
 
     .tables-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
       gap: 14px;
     }
 
@@ -557,7 +562,7 @@
       display: none;
     }
 
-   @media (max-width: 920px) {
+    @media (max-width: 920px) {
       #adminApp.admin-layout,
       .admin-layout {
         display: block !important;
@@ -714,7 +719,8 @@
         border-radius: 16px;
       }
     }
-@media print {
+
+    @media print {
       @page {
         size: 80mm auto;
         margin: 2mm;
@@ -768,7 +774,7 @@
 
       <button class="nav-item" data-view="viewTables">
         <i data-lucide="grid"></i>
-        <span>الترابيزات والواي فاي</span>
+        <span>الترابيزات</span>
       </button>
 
       <button class="nav-item" data-view="viewMenu">
@@ -846,7 +852,7 @@
 
       <section id="viewTables" class="view-panel">
         <div class="surface-card">
-          <h3 style="margin-bottom:12px;font-size:1.05rem;">خريطة الترابيزات والتحكم في Wi-Fi</h3>
+          <h3 style="margin-bottom:12px;font-size:1.05rem;">خريطة الترابيزات والتحكم في الواي فاي</h3>
           <div id="tablesGrid" class="tables-grid"></div>
         </div>
       </section>
@@ -858,7 +864,7 @@
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <button id="openNewItemBtn" class="btn-mini green">+ إضافة صنف جديد</button>
               <button id="exportFullMenuPdfBtn" class="btn-mini gold">📄 تصدير المنيو PDF</button>
-<button id="seedDefaultsBtn" class="btn-mini" style="display:none;">🔄 مزامنة من menu-data.js</button>
+              <button id="seedDefaultsBtn" class="btn-mini">🔄 مزامنة من menu-data.js</button>
             </div>
           </div>
           <div style="overflow-x:auto;">
@@ -1060,7 +1066,7 @@
 
       <section id="viewSettings" class="view-panel">
         <form id="settingsForm" class="surface-card">
-          <h3 style="margin-bottom:14px;font-size:1.05rem;">إعدادات الكافيه والواي فاي والضريبة</h3>
+          <h3 style="margin-bottom:14px;font-size:1.05rem;">إعدادات الكافيه والواي فاي والتواصل</h3>
           <div class="form-grid" style="margin-bottom:14px;">
             <div class="form-group">
               <label>اسم الكافيه</label>
@@ -1085,31 +1091,40 @@
               </select>
             </div>
             <div class="form-group">
-              <label>اسم شبكة Wi-Fi</label>
-              <input type="text" id="setWifiName" class="form-input" />
-            </div>
-            <div class="form-group">
-              <label>كلمة مرور Wi-Fi</label>
-              <input type="text" id="setWifiPass" class="form-input" />
-            </div>
-            <div class="form-group">
-              <label>احتساب رسوم على Wi-Fi</label>
-              <select id="setWifiChargeEnabled" class="form-input">
-                <option value="false">مجاني عند التفعيل</option>
-                <option value="true">إضافة رسوم تلقائية للفاتورة</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>قيمة رسوم Wi-Fi (ج.م)</label>
-              <input type="number" id="setWifiPrice" class="form-input" min="0" />
-            </div>
-            <div class="form-group">
               <label>العنوان</label>
-              <input type="text" id="setAddressAr" class="form-input" />
+              <input type="text" id="setAddressAr" class="form-input" placeholder="الشروق، القاهرة" />
             </div>
             <div class="form-group">
               <label>الوصف المختصر (Tagline)</label>
               <input type="text" id="setTaglineAr" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>اسم شبكة الواي فاي (Wi-Fi SSID)</label>
+              <input type="text" id="setWifiSsid" class="form-input" placeholder="RoastBerry_Guest" />
+            </div>
+            <div class="form-group">
+              <label>باسورد الواي فاي (Wi-Fi Password)</label>
+              <input type="text" id="setWifiPass" class="form-input" placeholder="rb@2026" />
+            </div>
+            <div class="form-group">
+              <label>رقم الهاتف (للفاتورة والتواصل)</label>
+              <input type="tel" id="setHotline" class="form-input" placeholder="010xxxxxxxx" />
+            </div>
+            <div class="form-group">
+              <label>رقم واتساب (يظهر للعملاء)</label>
+              <input type="tel" id="setWhatsapp" class="form-input" placeholder="010xxxxxxxx" />
+            </div>
+            <div class="form-group">
+              <label>رابط فيسبوك (اختياري)</label>
+              <input type="url" id="setFacebook" class="form-input" placeholder="https://facebook.com/..." />
+            </div>
+            <div class="form-group">
+              <label>رابط إنستجرام (اختياري)</label>
+              <input type="url" id="setInstagram" class="form-input" placeholder="https://instagram.com/..." />
+            </div>
+            <div class="form-group">
+              <label>رابط تيك توك (اختياري)</label>
+              <input type="url" id="setTiktok" class="form-input" placeholder="https://tiktok.com/@..." />
             </div>
             <div class="form-group">
               <label>شعار الكافيه (صورة)</label>
@@ -1120,24 +1135,19 @@
         </form>
 
         <form id="securityAuthForm" class="surface-card">
-          <h3 style="margin-bottom:12px;font-size:1.05rem;">تحديث بيانات دخول الإدارة</h3>
+          <h3 style="margin-bottom:12px;font-size:1.05rem;">تغيير كلمة مرور الإدارة</h3>
           <div class="form-grid" style="margin-bottom:14px;">
-            <div class="form-group">
-              <label>رقم الهاتف (11 رقم)</label>
-              <input type="tel" id="authNewPhone" class="form-input" required />
-            </div>
             <div class="form-group">
               <label>كلمة المرور الجديدة</label>
               <input type="password" id="authNewPass" class="form-input" placeholder="6 أحرف أو أرقام على الأقل" required />
             </div>
           </div>
-          <button type="submit" class="btn-mini red">🔒 تحديث بيانات الدخول</button>
+          <button type="submit" class="btn-mini red">🔒 تحديث كلمة المرور</button>
         </form>
       </section>
     </main>
   </div>
 
-  <!-- مودال إضافة/تعديل صنف -->
   <div id="itemModal" class="modal-backdrop">
     <div class="modal-box">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
@@ -1178,7 +1188,6 @@
     </div>
   </div>
 
-  <!-- مودال الإضافة السريعة للترابيزة -->
   <div id="quickAddPosModal" class="modal-backdrop">
     <div class="modal-box" style="max-width:620px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">

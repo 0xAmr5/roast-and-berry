@@ -1,13 +1,21 @@
-import { ref, get, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { db, sha256Hex, DEFAULT_ADMIN_PHONE, DEFAULT_ADMIN_PASS } from "../firebase-config.js";
+import { signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { auth } from "../firebase-config.js";
 
 const EGYPT_PHONE_REGEX = /^01[0125][0-9]{8}$/;
+const AUTH_DOMAIN_SUFFIX = "@roastberry.app";
+
 const phoneInput = document.getElementById("phoneInput");
 const passwordInput = document.getElementById("passwordInput");
 const phoneError = document.getElementById("phoneError");
 const passError = document.getElementById("passError");
 const globalError = document.getElementById("globalError");
 const submitBtn = document.getElementById("loginSubmitBtn");
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    window.location.href = "../admin/admin.html";
+  }
+});
 
 phoneInput.addEventListener("input", () => {
   phoneInput.value = phoneInput.value.replace(/\D/g, "").slice(0, 11);
@@ -32,7 +40,7 @@ document.getElementById("adminLoginForm").addEventListener("submit", async (e) =
   globalError.classList.remove("show");
 
   const phone = phoneInput.value.trim();
-  const password = passwordInput.value.trim();
+  const password = passwordInput.value;
 
   if (!EGYPT_PHONE_REGEX.test(phone)) {
     phoneInput.classList.add("is-invalid");
@@ -49,49 +57,18 @@ document.getElementById("adminLoginForm").addEventListener("submit", async (e) =
   submitBtn.innerHTML = `<span>جاري الدخول...</span>`;
 
   try {
-    const inputHash = await sha256Hex(password);
-    const defaultHash = await sha256Hex(DEFAULT_ADMIN_PASS);
-
-    let isValid = false;
-    let activeHash = defaultHash;
-
-    // 1. التحقق المباشر من البيانات المعتمدة 01018622861 / 20268855
-    if (phone === DEFAULT_ADMIN_PHONE && password === DEFAULT_ADMIN_PASS) {
-      isValid = true;
-      try {
-        await set(ref(db, "adminAuth"), {
-          phone: DEFAULT_ADMIN_PHONE,
-          passwordHash: defaultHash,
-          updatedAt: Date.now()
-        });
-      } catch {}
-    } else {
-      // 2. التحقق من أي بيانات محدثة من داخل الداشبورد
-      try {
-        const authSnap = await get(ref(db, "adminAuth"));
-        if (authSnap.exists()) {
-          const data = authSnap.val();
-          if (phone === data.phone && inputHash === data.passwordHash) {
-            isValid = true;
-            activeHash = data.passwordHash;
-          }
-        }
-      } catch {}
-    }
-
-    if (isValid) {
-      const sig = await sha256Hex(`${phone}|${activeHash}|RB_SESSION_2026`);
-      sessionStorage.setItem(
-        "rb_admin_session",
-        JSON.stringify({ phone, sig, loginAt: Date.now() })
-      );
-      window.location.href = "../admin/admin.html";
-    } else {
-      globalError.textContent = "رقم الهاتف أو كلمة المرور غير صحيحة.";
-      globalError.classList.add("show");
-    }
+    const mappedEmail = `${phone}${AUTH_DOMAIN_SUFFIX}`;
+    await signInWithEmailAndPassword(auth, mappedEmail, password);
+    window.location.href = "../admin/admin.html";
   } catch (err) {
-    globalError.textContent = "حدث خطأ أثناء تسجيل الدخول، حاول مرة أخرى.";
+    const code = err?.code || "";
+    if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") {
+      globalError.textContent = "رقم الهاتف أو كلمة المرور غير صحيحة.";
+    } else if (code === "auth/too-many-requests") {
+      globalError.textContent = "تم حظر المحاولات مؤقتاً لكثرة الأخطاء، حاول لاحقاً.";
+    } else {
+      globalError.textContent = "تعذر تسجيل الدخول، تأكد من الاتصال بالإنترنت.";
+    }
     globalError.classList.add("show");
   } finally {
     submitBtn.disabled = false;

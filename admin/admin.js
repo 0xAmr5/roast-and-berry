@@ -1,8 +1,8 @@
 import { ref, onValue, set, update, remove, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { db, sha256Hex, DEFAULT_ADMIN_PHONE, DEFAULT_ADMIN_PASS } from "../firebase-config.js";
+import { onAuthStateChanged, signOut, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { db, auth } from "../firebase-config.js";
 import * as MenuDataModule from "../menu-data.js?v=99";
 
-const EGYPT_PHONE_REGEX = /^01[0125][0-9]{8}$/;
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 
 function extractMenuDataFromModule(mod) {
@@ -19,7 +19,7 @@ function extractMenuDataFromModule(mod) {
       nameEn: item.nameEn || "",
       descAr: item.descAr || "",
       price: Number(item.price) || (item.sizes?.[0]?.price ? Number(item.sizes[0].price) : 0),
-      image: item.image || "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=600",
+      image: item.image || "[https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=600](https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=600)",
       badge: item.badge || "",
       available: item.available !== false
     };
@@ -37,6 +37,7 @@ let categories = [...LOCAL_CATEGORIES];
 let menuItems = [...LOCAL_MENU_ITEMS];
 let activeTabs = {};
 let waiterCalls = {};
+let wifiPermissions = {};
 let completedSales = [];
 let lastAlertStamp = Date.now();
 let lastCallStamp = Date.now();
@@ -46,20 +47,22 @@ let selectedQrTables = new Set();
 let currentReportPeriod = "today";
 let filteredReportSales = [];
 let idleTimer = null;
+let adminBooted = false;
 
 let settings = {
   totalTables: 20,
   taxEnabled: true,
   acceptingOrders: true,
   nameAr: "روست آند بيري كافيه",
-  wifiName: "RoastBerry_5G",
-  wifiPass: "RB@2026#Cafe",
-  wifiChargeEnabled: false,
-  wifiPrice: 15,
-  wifiPermissions: {},
   taglineAr: "قهوة مختصة • فطار • سلطات • أطباق رئيسية • عصائر فريش وحلويات",
-  addressAr: "شارع التسعين الشمالي، التجمع الخامس، القاهرة",
-  hotline: "01018622861",
+  addressAr: "الشروق، القاهرة",
+  wifiSsid: "RoastBerry_Guest",
+  wifiPass: "rb@2026",
+  hotline: "",
+  whatsapp: "",
+  facebook: "",
+  instagram: "",
+  tiktok: "",
   logoUrl: ""
 };
 
@@ -73,45 +76,11 @@ let design = {
   mobileCols: "1"
 };
 
-async function verifySessionOrRedirect() {
-  const raw = sessionStorage.getItem("rb_admin_session");
-  if (!raw) {
-    window.location.href = "../login/login.html";
-    return false;
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-    let storedPhone = DEFAULT_ADMIN_PHONE;
-    let storedHash = await sha256Hex(DEFAULT_ADMIN_PASS);
-
-    try {
-      const authSnap = await get(ref(db, "adminAuth"));
-      if (authSnap.exists() && authSnap.val().phone && authSnap.val().passwordHash) {
-        storedPhone = authSnap.val().phone;
-        storedHash = authSnap.val().passwordHash;
-      }
-    } catch {}
-
-    const expectedSig = await sha256Hex(`${storedPhone}|${storedHash}|RB_SESSION_2026`);
-    if (parsed.phone !== storedPhone || parsed.sig !== expectedSig) {
-      sessionStorage.removeItem("rb_admin_session");
-      window.location.href = "../login/login.html";
-      return false;
-    }
-    return true;
-  } catch {
-    sessionStorage.removeItem("rb_admin_session");
-    window.location.href = "../login/login.html";
-    return false;
-  }
-}
-
 function setupIdleLock() {
   const resetTimer = () => {
     clearTimeout(idleTimer);
-    idleTimer = setTimeout(() => {
-      sessionStorage.removeItem("rb_admin_session");
+    idleTimer = setTimeout(async () => {
+      await signOut(auth);
       window.location.href = "../login/login.html";
     }, IDLE_TIMEOUT_MS);
   };
@@ -119,8 +88,8 @@ function setupIdleLock() {
   resetTimer();
 }
 
-document.getElementById("logoutBtn").addEventListener("click", () => {
-  sessionStorage.removeItem("rb_admin_session");
+document.getElementById("logoutBtn").addEventListener("click", async () => {
+  await signOut(auth);
   window.location.href = "../login/login.html";
 });
 
@@ -177,26 +146,36 @@ async function syncMenuFromLocalData(forceOverwrite = false) {
   }
 }
 
-async function bootAdmin() {
-  const isAuth = await verifySessionOrRedirect();
-  if (!isAuth) return;
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    window.location.href = "../login/login.html";
+    return;
+  }
+  if (adminBooted) return;
+  adminBooted = true;
 
   document.getElementById("adminApp").style.display = "grid";
   setupIdleLock();
 
+  populateSettingsForm();
+  renderTablesDeck();
+  renderOrdersDeck();
+  updateKPIs();
   populateCategorySelect();
   renderItemsTable();
+
   await syncMenuFromLocalData(false);
 
-  onValue(ref(db, "settings"), (snap) => {
+  onValue(ref(db, "settings"), async (snap) => {
     if (snap.exists()) {
       settings = { ...settings, ...snap.val() };
-      if (!settings.wifiPermissions) settings.wifiPermissions = {};
       populateSettingsForm();
       renderTablesDeck();
       renderOrdersDeck();
       renderAdminQRs();
       updateKPIs();
+    } else {
+      await set(ref(db, "settings"), settings);
     }
   });
 
@@ -220,6 +199,12 @@ async function bootAdmin() {
         updateLivePreview();
       }
     }
+  });
+
+  onValue(ref(db, "wifiPermissions"), (snap) => {
+    wifiPermissions = snap.exists() ? snap.val() : {};
+    renderTablesDeck();
+    renderOrdersDeck();
   });
 
   onValue(ref(db, "activeTabs"), (snap) => {
@@ -257,12 +242,11 @@ async function bootAdmin() {
     }
   });
 
-  document.getElementById("authNewPhone").value = DEFAULT_ADMIN_PHONE;
   initQrSelection();
   renderAdminQRs();
   syncDesignUI();
   if (window.lucide) lucide.createIcons();
-}
+});
 
 document.querySelectorAll(".nav-item").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -301,7 +285,13 @@ function renderAlerts() {
     if (t > maxCallTime) {
       maxCallTime = t;
       playBellSound();
-      showToast(c.type === "bill" ? `🧾 ترابيزة ${c.table} تطلب الحساب!` : `🔔 ترابيزة ${c.table} تنادي الويتر!`);
+      if (c.type === "wifi") {
+        showToast(`📶 ترابيزة ${c.table} تطلب تفعيل الواي فاي!`);
+      } else if (c.type === "bill") {
+        showToast(`🧾 ترابيزة ${c.table} تطلب الحساب!`);
+      } else {
+        showToast(`🔔 ترابيزة ${c.table} تنادي الويتر!`);
+      }
     }
   });
   lastCallStamp = maxCallTime;
@@ -310,84 +300,39 @@ function renderAlerts() {
     stack.innerHTML = "";
     return;
   }
+
   stack.innerHTML = activeCalls
-    .map(
-      (c) => `
-      <div class="alert-card">
-        <span>🔔 ${c.type === "bill" ? `ترابيزة ${c.table} تطلب الحساب (${c.total} ج.م)` : `ترابيزة ${c.table} تنادي الويتر`} — ${c.timeFormatted || ""}</span>
-        <button class="btn-mini gold" onclick="window.dismissCall('${c.id}')">تم الاستجابة ✔</button>
-      </div>
-    `
-    )
+    .map((c) => {
+      if (c.type === "wifi") {
+        return `
+          <div class="alert-card wifi-req">
+            <span>📶 ترابيزة ${c.table} تطلب تفعيل الواي فاي — ${c.timeFormatted || ""}</span>
+            <div style="display:flex;gap:6px;">
+              <button class="btn-mini blue" onclick="window.approveWifiRequest('${c.id}', '${c.table}')">✔ تفعيل الواي فاي</button>
+              <button class="btn-mini red" onclick="window.dismissCall('${c.id}')">رفض</button>
+            </div>
+          </div>
+        `;
+      }
+      const msg = c.type === "bill" ? `ترابيزة ${c.table} تطلب الحساب (${c.total} ج.م)` : `ترابيزة ${c.table} تنادي الويتر`;
+      return `
+        <div class="alert-card">
+          <span>🔔 ${msg} — ${c.timeFormatted || ""}</span>
+          <button class="btn-mini gold" onclick="window.dismissCall('${c.id}')">تم الاستجابة ✔</button>
+        </div>
+      `;
+    })
     .join("");
 }
 
-window.dismissCall = async (id) => remove(ref(db, `waiterCalls/${id}`));
-
-/* ==================== WIFI PERMISSION & BILLING ==================== */
-function isWifiAllowedForTable(tableNum) {
-  const key = `table_${tableNum}`;
-  return Boolean(settings.wifiPermissions && settings.wifiPermissions[key] === true);
-}
-
-window.toggleTableWifi = async (tableNum) => {
-  try {
-    const cleanNum = String(tableNum).replace(/\D/g, "") || String(tableNum);
-    const tabKey = `table_${cleanNum}`;
-    const curAllowed = isWifiAllowedForTable(cleanNum);
-    const nextState = !curAllowed;
-
-    if (!settings.wifiPermissions) settings.wifiPermissions = {};
-    settings.wifiPermissions[tabKey] = nextState;
-
-    await update(ref(db, "settings/wifiPermissions"), {
-      [tabKey]: nextState
-    });
-
-    if (nextState && settings.wifiChargeEnabled && Number(settings.wifiPrice) > 0) {
-      const wifiFee = Number(settings.wifiPrice);
-      const tabRef = ref(db, `activeTabs/${tabKey}`);
-      const snap = await get(tabRef);
-      const existing = snap.exists() && snap.val().status === "open" ? snap.val() : null;
-      const items = existing && Array.isArray(existing.items) ? JSON.parse(JSON.stringify(existing.items)) : [];
-
-      if (!items.some((i) => i.id === "wifi_service")) {
-        items.push({
-          id: "wifi_service",
-          nameAr: "خدمة الإنترنت (Wi-Fi)",
-          sizeAr: "",
-          qty: 1,
-          unitPrice: wifiFee,
-          totalPrice: wifiFee
-        });
-        const subtotal = items.reduce((s, i) => s + Number(i.totalPrice), 0);
-        const tax = settings.taxEnabled !== false ? Math.round(subtotal * 0.14) : 0;
-        const nowStr = new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
-
-        await set(tabRef, {
-          tableNumber: cleanNum,
-          status: "open",
-          items,
-          subtotal,
-          tax,
-          total: subtotal + tax,
-          openedAt: existing?.openedAt || nowStr,
-          lastUpdatedAt: nowStr,
-          alertTimestamp: existing?.alertTimestamp || Date.now()
-        });
-      }
-    }
-
-    renderOrdersDeck();
-    renderTablesDeck();
-    showToast(nextState ? `📶 تم تفعيل Wi-Fi لترابيزة ${cleanNum}` : `🔒 تم إخفاء Wi-Fi عن ترابيزة ${cleanNum}`);
-  } catch (err) {
-    console.error("WiFi Toggle Error:", err);
-    showToast("❌ حدث خطأ أثناء تحديث إذن Wi-Fi: " + (err.message || ""));
-  }
+window.approveWifiRequest = async (callId, tableNum) => {
+  await set(ref(db, `wifiPermissions/table_${tableNum}`), true);
+  await remove(ref(db, `waiterCalls/${callId}`));
+  showToast(`📶 تم تفعيل الواي فاي لترابيزة ${tableNum}`);
 };
 
-/* ==================== ORDERS & TABLES ==================== */
+window.dismissCall = async (id) => remove(ref(db, `waiterCalls/${id}`));
+
 function renderOrdersDeck() {
   const container = document.getElementById("ordersContainer");
   const openEntries = Object.entries(activeTabs).filter(([, t]) => t && t.status === "open");
@@ -399,14 +344,12 @@ function renderOrdersDeck() {
 
   container.innerHTML = openEntries
     .map(([tabKey, tab]) => {
-      const wifiActive = isWifiAllowedForTable(tab.tableNumber);
+      const hasWifi = wifiPermissions[tabKey] === true;
       return `
         <div class="ticket-card">
           <div class="ticket-head">
             <span class="ticket-badge">ترابيزة ${tab.tableNumber}</span>
-            <button type="button" class="btn-mini ${wifiActive ? "blue" : ""}" onclick="window.toggleTableWifi('${tab.tableNumber}')">
-              ${wifiActive ? "📶 Wi-Fi مفعّل" : "🔒 تفعيل Wi-Fi"}
-            </button>
+            <small style="color:var(--muted);font-weight:700;">#${tab.orderNumber || ""} • ${tab.openedAt || ""}</small>
           </div>
           <ul class="ticket-items">
             ${(tab.items || [])
@@ -434,6 +377,9 @@ function renderOrdersDeck() {
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
             <button class="btn-mini green" onclick="window.addItemToTable('${tab.tableNumber}', '${tabKey}')">+ صنف</button>
+            <button class="btn-mini ${hasWifi ? "blue" : ""}" onclick="window.toggleTableWifi('${tab.tableNumber}', ${hasWifi})">
+              ${hasWifi ? "📶 Wi-Fi مفعّل" : "📵 Wi-Fi"}
+            </button>
             <button class="btn-mini" onclick="window.printThermalReceipt('${tabKey}')">🖨️ ريسيت</button>
             <button class="btn-mini gold" style="margin-inline-start:auto;" onclick="window.settleTableTab('${tabKey}')">✔ تحصيل وإخلاء</button>
           </div>
@@ -459,8 +405,7 @@ window.adjustTabItemQty = async (tabKey, itemIndex, delta) => {
 
   if (items.length === 0) {
     await remove(ref(db, `activeTabs/${tabKey}`));
-    await update(ref(db, "settings/wifiPermissions"), { [tabKey]: false });
-    showToast("تم إغلاق الحساب وإلغاء إذن Wi-Fi");
+    showToast("تم إغلاق الحساب");
     return;
   }
 
@@ -479,7 +424,7 @@ function renderTablesDeck() {
     const tabKey = `table_${i}`;
     const tab = activeTabs[tabKey];
     const isBusy = tab && tab.status === "open";
-    const wifiActive = isWifiAllowedForTable(i);
+    const hasWifi = wifiPermissions[tabKey] === true;
 
     html += `
       <div class="table-tile ${isBusy ? "busy" : "free"}">
@@ -490,8 +435,8 @@ function renderTablesDeck() {
         </div>
         <div style="display:flex;gap:5px;justify-content:center;flex-wrap:wrap;">
           <button class="btn-mini green" onclick="window.addItemToTable('${i}', '${tabKey}')">+ صنف</button>
-          <button class="btn-mini ${wifiActive ? "blue" : ""}" onclick="window.toggleTableWifi('${i}')">
-            ${wifiActive ? "📶 Wi-Fi" : "🔒 Wi-Fi"}
+          <button class="btn-mini ${hasWifi ? "blue" : ""}" onclick="window.toggleTableWifi('${i}', ${hasWifi})">
+            ${hasWifi ? "📶 Wi-Fi مفعّل" : "📵 تفعيل Wi-Fi"}
           </button>
           ${isBusy ? `<button class="btn-mini gold" onclick="window.settleTableTab('${tabKey}')">تحصيل</button>` : ""}
         </div>
@@ -500,6 +445,17 @@ function renderTablesDeck() {
   }
   grid.innerHTML = html;
 }
+
+window.toggleTableWifi = async (tableNum, currentState) => {
+  const tabKey = `table_${tableNum}`;
+  if (currentState) {
+    await remove(ref(db, `wifiPermissions/${tabKey}`));
+    showToast(`تم إيقاف الواي فاي عن ترابيزة ${tableNum}`);
+  } else {
+    await set(ref(db, `wifiPermissions/${tabKey}`), true);
+    showToast(`📶 تم تفعيل الواي فاي لترابيزة ${tableNum}`);
+  }
+};
 
 window.addItemToTable = (tableLabel, tabKey = null) => {
   targetPosTable = String(tableLabel);
@@ -564,8 +520,10 @@ window.confirmQuickPosItem = async (itemId) => {
 
   const subtotal = items.reduce((s, i) => s + Number(i.totalPrice), 0);
   const tax = settings.taxEnabled !== false ? Math.round(subtotal * 0.14) : 0;
+  const nowTs = Date.now();
 
   await set(tabRef, {
+    orderNumber: existing?.orderNumber || String(nowTs).slice(-5),
     tableNumber: targetPosTable,
     status: "open",
     items,
@@ -574,7 +532,7 @@ window.confirmQuickPosItem = async (itemId) => {
     total: subtotal + tax,
     openedAt: existing?.openedAt || nowStr,
     lastUpdatedAt: nowStr,
-    alertTimestamp: Date.now()
+    alertTimestamp: nowTs
   });
 
   showToast(`تم إضافة "${chosen.nameAr}"`);
@@ -588,7 +546,7 @@ document.getElementById("closeQuickAddPosBtn").addEventListener("click", () => {
 window.settleTableTab = async (tabKey) => {
   const tab = activeTabs[tabKey];
   if (!tab) return;
-  if (!confirm(`تأكيد تحصيل مبلغ ${tab.total} ج.م وإخلاء الترابيزة وإيقاف Wi-Fi؟`)) return;
+  if (!confirm(`تأكيد تحصيل مبلغ ${tab.total} ج.م وإخلاء الترابيزة؟`)) return;
 
   const now = new Date();
   const saleId = `sale_${Date.now()}`;
@@ -602,23 +560,22 @@ window.settleTableTab = async (tabKey) => {
   });
 
   await remove(ref(db, `activeTabs/${tabKey}`));
-  await update(ref(db, "settings/wifiPermissions"), { [tabKey]: false });
-  showToast("تم التحصيل وإخلاء الترابيزة وإيقاف Wi-Fi تلقائياً");
+  await remove(ref(db, `wifiPermissions/${tabKey}`));
+  showToast("تم التحصيل وإخلاء الترابيزة وإيقاف الواي فاي بنجاح");
 };
 
-/* ==================== الريسيت الحراري (ورقة واحدة 80mm) ==================== */
 window.printThermalReceipt = (tabKey) => {
   const tab = activeTabs[tabKey];
   if (!tab) return;
-  const receiptNo = String(Date.now()).slice(-5);
+  const receiptNo = tab.orderNumber || String(Date.now()).slice(-5);
   const area = document.getElementById("thermalPrintArea");
 
   area.innerHTML = `
     <div style="width:74mm;margin:0 auto;padding:6px;border:2px solid #000;border-radius:6px;background:#fff;color:#000;font-family:Tahoma,Arial,sans-serif;direction:rtl;box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
       <div style="text-align:center;border-bottom:2px dashed #000;padding-bottom:6px;margin-bottom:6px;">
         <div style="font-size:15px;font-weight:900;">${settings.nameAr}</div>
-        <div style="font-size:9px;margin-top:2px;">${settings.addressAr || ""}</div>
-        <div style="font-size:9px;margin-top:1px;">هاتف: <bdi>${settings.hotline || "01009694831"}</bdi></div>
+        <div style="font-size:9px;margin-top:2px;">${settings.addressAr || "الشروق، القاهرة"}</div>
+        ${settings.hotline ? `<div style="font-size:9px;margin-top:1px;">هاتف: <bdi>${settings.hotline}</bdi></div>` : ""}
       </div>
 
       <table style="width:100%;font-size:10px;font-weight:bold;background:#f2f2f2;margin-bottom:5px;border-collapse:collapse;">
@@ -679,7 +636,7 @@ window.printThermalReceipt = (tabKey) => {
   `;
   window.print();
 };
-/* ==================== MENU ITEMS CRUD & PDF ==================== */
+
 function populateCategorySelect() {
   const sel = document.getElementById("fCategory");
   if (!sel) return;
@@ -774,8 +731,6 @@ document.getElementById("exportFullMenuPdfBtn").addEventListener("click", () => 
   const wrapper = document.createElement("div");
   wrapper.style.padding = "18px";
   wrapper.style.fontFamily = "Arial, Tahoma, sans-serif";
-  wrapper.style.letterSpacing = "normal";
-  wrapper.style.wordSpacing = "normal";
   wrapper.dir = "rtl";
   wrapper.style.background = "#ffffff";
   wrapper.style.color = "#1c1917";
@@ -835,7 +790,6 @@ document.getElementById("exportFullMenuPdfBtn").addEventListener("click", () => 
     .save();
 });
 
-/* ==================== REPORTS ==================== */
 function renderReports() {
   const tbody = document.getElementById("reportsTableBody");
   if (!tbody) return;
@@ -950,7 +904,7 @@ document.getElementById("exportReportPdfBtn").addEventListener("click", () => {
       <tr>
         <td style="text-align:right;vertical-align:top;">
           <div style="font-size:18px;font-weight:bold;color:#23150d;margin-bottom:4px;">تقرير المبيعات والحسابات — ${settings.nameAr}</div>
-          <div style="font-size:11px;color:#57534e;">${settings.addressAr || ""} | هاتف: <bdi>${settings.hotline || "01009694831"}</bdi></div>
+          <div style="font-size:11px;color:#57534e;">${settings.addressAr || "الشروق، القاهرة"} ${settings.hotline ? `| هاتف: <bdi>${settings.hotline}</bdi>` : ""}</div>
         </td>
         <td style="text-align:left;vertical-align:top;font-size:11px;color:#57534e;">
           <div><strong>تاريخ التصدير:</strong> <bdi>${new Date().toLocaleDateString("en-GB")}</bdi></div>
@@ -1031,7 +985,6 @@ document.getElementById("exportReportPdfBtn").addEventListener("click", () => {
     .save();
 });
 
-/* ==================== QR GENERATOR ==================== */
 function initQrSelection() {
   const total = Number(settings.totalTables) || 20;
   selectedQrTables.clear();
@@ -1102,7 +1055,6 @@ document.getElementById("printSelectedQrBtn").addEventListener("click", () => {
   w.document.close();
 });
 
-/* ==================== DESIGN STUDIO ==================== */
 function syncDesignUI() {
   document.querySelectorAll(".design-radio-card").forEach((el) => {
     const isMatch = el.dataset.layout === design.layout;
@@ -1128,7 +1080,7 @@ function updateLivePreview() {
     nameAr: "سبانش لاتيه مثلج",
     descAr: "إسبريسو غني مع حليب مكثف محلى وثلج مجروش",
     price: 75,
-    image: "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=600"
+    image: "[https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=600](https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=600)"
   };
   const price = sample.sizes?.length ? sample.sizes[0].price : sample.price;
   const brandColor = design.primaryColor || "#f59e0b";
@@ -1224,19 +1176,21 @@ document.getElementById("saveDesignBtn").addEventListener("click", async () => {
   showToast("تم حفظ ونشر التصميم على منيو العملاء");
 });
 
-/* ==================== SETTINGS & AUTH ==================== */
 function populateSettingsForm() {
   document.getElementById("adminCafeName").textContent = settings.nameAr;
   document.getElementById("setNameAr").value = settings.nameAr;
   document.getElementById("setTotalTables").value = settings.totalTables || 20;
   document.getElementById("setTaxEnabled").value = String(settings.taxEnabled !== false);
   document.getElementById("setAccepting").value = String(settings.acceptingOrders !== false);
-  document.getElementById("setWifiName").value = settings.wifiName || "";
-  document.getElementById("setWifiPass").value = settings.wifiPass || "";
-  document.getElementById("setWifiChargeEnabled").value = String(Boolean(settings.wifiChargeEnabled));
-  document.getElementById("setWifiPrice").value = settings.wifiPrice || 15;
-  document.getElementById("setAddressAr").value = settings.addressAr || "";
+  document.getElementById("setAddressAr").value = settings.addressAr || "الشروق، القاهرة";
   document.getElementById("setTaglineAr").value = settings.taglineAr || "";
+  document.getElementById("setWifiSsid").value = settings.wifiSsid || "";
+  document.getElementById("setWifiPass").value = settings.wifiPass || "";
+  document.getElementById("setHotline").value = settings.hotline || "";
+  document.getElementById("setWhatsapp").value = settings.whatsapp || "";
+  document.getElementById("setFacebook").value = settings.facebook || "";
+  document.getElementById("setInstagram").value = settings.instagram || "";
+  document.getElementById("setTiktok").value = settings.tiktok || "";
   if (settings.logoUrl) {
     document.getElementById("sidebarLogoWrap").innerHTML = `<img src="${settings.logoUrl}" alt="Logo" />`;
     document.getElementById("dynamicFavicon").href = settings.logoUrl;
@@ -1259,30 +1213,36 @@ document.getElementById("settingsForm").addEventListener("submit", async (e) => 
     totalTables: Number(document.getElementById("setTotalTables").value) || 20,
     taxEnabled: document.getElementById("setTaxEnabled").value === "true",
     acceptingOrders: document.getElementById("setAccepting").value === "true",
-    wifiName: document.getElementById("setWifiName").value.trim(),
+    addressAr: document.getElementById("setAddressAr").value.trim() || "الشروق، القاهرة",
+    taglineAr: document.getElementById("setTaglineAr").value.trim(),
+    wifiSsid: document.getElementById("setWifiSsid").value.trim(),
     wifiPass: document.getElementById("setWifiPass").value.trim(),
-    wifiChargeEnabled: document.getElementById("setWifiChargeEnabled").value === "true",
-    wifiPrice: Number(document.getElementById("setWifiPrice").value) || 0,
-    addressAr: document.getElementById("setAddressAr").value.trim(),
-    taglineAr: document.getElementById("setTaglineAr").value.trim()
+    hotline: document.getElementById("setHotline").value.trim(),
+    whatsapp: document.getElementById("setWhatsapp").value.trim(),
+    facebook: document.getElementById("setFacebook").value.trim(),
+    instagram: document.getElementById("setInstagram").value.trim(),
+    tiktok: document.getElementById("setTiktok").value.trim()
   });
   showToast("تم حفظ الإعدادات");
 });
 
 document.getElementById("securityAuthForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const phone = document.getElementById("authNewPhone").value.trim();
   const pass = document.getElementById("authNewPass").value;
-  if (!EGYPT_PHONE_REGEX.test(phone)) return showToast("رقم الهاتف المصري يجب أن يكون 11 رقم");
   if (pass.length < 6) return showToast("كلمة المرور 6 أحرف على الأقل");
 
-  const passwordHash = await sha256Hex(pass);
-  await set(ref(db, "adminAuth"), { phone, passwordHash, customUpdated: true, updatedAt: Date.now() });
-
-  const sig = await sha256Hex(`${phone}|${passwordHash}|RB_SESSION_2026`);
-  sessionStorage.setItem("rb_admin_session", JSON.stringify({ phone, sig, loginAt: Date.now() }));
-  document.getElementById("authNewPass").value = "";
-  showToast("تم تحديث بيانات الدخول بنجاح");
+  try {
+    if (!auth.currentUser) return;
+    await updatePassword(auth.currentUser, pass);
+    document.getElementById("authNewPass").value = "";
+    showToast("تم تحديث كلمة المرور بنجاح");
+  } catch (err) {
+    if (err?.code === "auth/requires-recent-login") {
+      showToast("يرجى تسجيل الخروج والدخول مجدداً قبل تغيير كلمة المرور");
+    } else {
+      showToast("حدث خطأ أثناء تحديث كلمة المرور");
+    }
+  }
 });
 
 document.getElementById("seedDefaultsBtn").addEventListener("click", async () => {
@@ -1300,7 +1260,6 @@ function showToast(msg) {
   setTimeout(() => bar.classList.remove("show"), 3000);
 }
 
-/* ==================== MOBILE SIDEBAR DRAWER ==================== */
 (function initMobileSidebar() {
   const toggleBtn = document.getElementById("mobileMenuToggleBtn");
   const sidebar = document.querySelector(".sidebar");
@@ -1334,5 +1293,3 @@ function showToast(msg) {
     });
   });
 })();
-
-bootAdmin();
